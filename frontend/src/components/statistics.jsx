@@ -14,7 +14,7 @@ function Statistics() {
     const getData = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch("http://localhost:4039/get_all_statistiks", {
+        const response = await fetch("https://portfolio-del-backend.onrender.com/get_all_statistiks", {
           method: "GET",
           headers: {
             "Content-type": "application/json",
