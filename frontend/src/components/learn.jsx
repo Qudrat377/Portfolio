@@ -18,7 +18,7 @@ function Learn() {
   const getData = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch("http://localhost:4039/get_all_learn", {
+      const response = await fetch("https://portfolio-del-backend.onrender.com/get_all_learn", {
         method: "GET",
         headers: {
           "Content-type": "application/json",
@@ -49,7 +49,7 @@ function Learn() {
     try {
       setCVLoading(true);
       const responsee = await fetch(
-        "http://localhost:4039/get_all_CVandSertificat",
+        "https://portfolio-del-backend.onrender.com/get_all_CVandSertificat",
       );
 
       if (!responsee.ok) throw new Error("Ma'lumot olishda xatolik");

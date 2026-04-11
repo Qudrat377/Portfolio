@@ -244,11 +244,11 @@ function Skills() {
       try {
         setIsLoading(true);
         // 1. Skillarni olish
-        const skillsRes = await fetch("http://localhost:4039/get_all_skills");
+        const skillsRes = await fetch("https://portfolio-del-backend.onrender.com/get_all_skills");
         const skillsInfo = await skillsRes.json();
 
         // 2. Sarlavhalarni olish (Agar bu boshqa endpoint bo'lsa)
-        const headerRes = await fetch("http://localhost:4039/get_skills_title");
+        const headerRes = await fetch("https://portfolio-del-backend.onrender.com/get_skills_title");
         const headerInfo = await headerRes.json();
 
         setSkillsData(Array.isArray(skillsInfo) ? skillsInfo : []);

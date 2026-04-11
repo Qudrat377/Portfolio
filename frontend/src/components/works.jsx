@@ -125,7 +125,7 @@ function Works() {
   // 1. Funksiyalarni useEffect dan tepada e'lon qilamiz
   const getData = async () => {
     try {
-      const response = await fetch("http://localhost:4039/get_all_works", {
+      const response = await fetch("https://portfolio-del-backend.onrender.com/get_all_works", {
         method: "GET",
         headers: { "Content-type": "application/json" },
       });
@@ -139,7 +139,7 @@ function Works() {
 
   const fetchProjects = async () => {
     try {
-      const response = await fetch("http://localhost:4039/get_all_WorkProjects");
+      const response = await fetch("https://portfolio-del-backend.onrender.com/get_all_WorkProjects");
       if (!response.ok) throw new Error("Loyihalarni yuklashda xatolik");
       const dates = await response.json();
       setProjects(Array.isArray(dates) ? dates : []);
