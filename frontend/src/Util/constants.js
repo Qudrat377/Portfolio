@@ -16,7 +16,7 @@ import {
 export const navigationLinks = [
   {
     id: "home",
-    title: "Bosh sahifa",
+    title: "Home",
   },
   {
     id: "learn",
