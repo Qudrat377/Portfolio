@@ -27,7 +27,7 @@ function Business() {
   
     const fetchProjects = async () => {
       try {
-        const response = await fetch("https://portfolio-del-backend.onrender.com/get_all_sets");
+        const response = await fetch("https://portfolio-del-backend.onrender.com/api/v1/get_all_sets");
         if (!response.ok) throw new Error("Loyihalarni yuklashda xatolik");
         const dates = await response.json();
         setProjects(Array.isArray(dates) ? dates : []);
