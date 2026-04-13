@@ -114,7 +114,7 @@ function About_me() {
   const getData = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch("https://portfolio-del-backend.onrender.com/get_all_about_me", {
+      const response = await fetch("https://portfolio-del-backend.onrender.com/api/v1/get_all_about_me", {
         method: "GET",
         headers: {
           "Content-type": "application/json",
