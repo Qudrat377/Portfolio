@@ -14,22 +14,22 @@ const createLimiter = (windowMs, max, message) =>
 
 // General API limiter
 const apiLimiter = createLimiter(
-  parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-  parseInt(process.env.RATE_LIMIT_MAX) || 100,
+  parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 1 * 60 * 1000, //15 * 60 * 1000 
+  parseInt(process.env.RATE_LIMIT_MAX) || 1000,
   'Too many requests, please try again later'
 );
 
 // Strict limiter for auth endpoints
 const authLimiter = createLimiter(
-  15 * 60 * 1000, // 15 min
+  1 * 60 * 1000, //15 * 60 * 1000  // 15 min 
   20,
-  'Too many authentication attempts, please try again in 15 minutes'
+  "Juda ko'p marotaba urinishlar qildingiz shuning uchun sizni 15 daqiqaga xafsiz rejimga tushurdim. Too many authentication attempts, please try again in 15 minutes"
 );
 
 // Very strict for password change
 const passwordLimiter = createLimiter(
-  60 * 60 * 1000, // 1 hour
-  5,
+  1 * 60 * 1000, // 60 * 60 * 1000 // 1 hour
+  20,
   'Too many password change attempts, please try again in 1 hour'
 );
 
