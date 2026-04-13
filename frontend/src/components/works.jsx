@@ -125,7 +125,7 @@ function Works() {
   // 1. Funksiyalarni useEffect dan tepada e'lon qilamiz
   const getData = async () => {
     try {
-      const response = await fetch("https://portfolio-del-backend.onrender.com/get_all_works", {
+      const response = await fetch("https://portfolio-del-backend.onrender.com/api/v1/get_all_works", {
         method: "GET",
         headers: { "Content-type": "application/json" },
       });
