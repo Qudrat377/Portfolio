@@ -1,0 +1,4520 @@
+
+
+=========================================
+FILE: src\app.js
+=========================================
+require('dotenv').config();
+
+const express = require('express');
+const helmet = require('helmet');
+const cors = require('cors');
+const mongoSanitize = require('express-mongo-sanitize');
+const morgan = require('morgan');
+
+const connectDB = require('./config/database');
+const logger = require('./utils/logger');
+const { apiLimiter } = require('./middlewares/rateLimiter.middleware');
+const { errorHandler } = require('./middlewares/error.middleware');
+const { AppError } = require('./utils/AppError');
+const routes = require('./routes/index');
+
+const app = express();
+
+// ─── Security Middleware ──────────────────────────────────────────────────────
+app.use(helmet()); 
+
+app.use( 
+  cors({
+    origin: process.env.CORS_ORIGIN?.split(',') || '*',
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+  })
+);
+
+// Sanitize MongoDB operators from user input
+app.use(mongoSanitize());
+
+// ─── Body Parsing ─────────────────────────────────────────────────────────────
+app.use(express.json({ limit: '10kb' }));
+app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+
+// ─── Logging ──────────────────────────────────────────────────────────────────
+if (process.env.NODE_ENV === 'development') {
+  app.use(morgan('dev'));
+} else {
+  app.use(
+    morgan('combined', {
+      stream: { write: (msg) => logger.http(msg.trim()) },
+    })
+  );
+}
+
+// ─── Rate Limiting ────────────────────────────────────────────────────────────
+app.use('/api', apiLimiter);
+
+// ─── Health Check ─────────────────────────────────────────────────────────────
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'English Center API is running',
+    environment: process.env.NODE_ENV,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// ─── API Routes ───────────────────────────────────────────────────────────────
+app.use('/api/v1', routes);
+
+// ─── 404 Handler ──────────────────────────────────────────────────────────────
+app.all('*', (req, res, next) => {
+  next(new AppError(`Route ${req.originalUrl} not found`, 404));
+});
+
+// ─── Global Error Handler ─────────────────────────────────────────────────────
+app.use(errorHandler);
+
+// ─── Start Server ─────────────────────────────────────────────────────────────
+const PORT = process.env.PORT || 5000;
+
+const startServer = async () => {
+  await connectDB();
+
+  const server = app.listen(PORT, '0.0.0.0', () => {
+    logger.info(`🚀 Server running on port ${PORT} [${process.env.NODE_ENV}]`);
+    logger.info(`📡 API: http://localhost:${PORT}/api/v1`);
+    logger.info(`❤️  Health: http://localhost:${PORT}/health`);
+  });
+
+  // Graceful shutdown
+  const shutdown = (signal) => {
+    logger.info(`${signal} received. Shutting down gracefully...`);
+    server.close(() => {
+      logger.info('HTTP server closed.');
+      process.exit(0);
+    });
+  };
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
+
+  process.on('unhandledRejection', (err) => {
+    logger.error('UNHANDLED REJECTION:', err);
+    server.close(() => process.exit(1));
+  });
+
+  process.on('uncaughtException', (err) => {
+    logger.error('UNCAUGHT EXCEPTION:', err);
+    process.exit(1);
+  });
+};
+
+startServer();
+
+module.exports = app;
+
+
+=========================================
+FILE: src\config\constants.js
+=========================================
+module.exports = {
+  ROLES: {
+    ADMIN: 'ADMIN',
+    MANAGER: 'MANAGER',
+    TEACHER: 'TEACHER',
+    ASSISTANT: 'ASSISTANT',
+    STUDENT: 'STUDENT',
+  },
+
+  ATTENDANCE_STATUS: {
+    PRESENT: 'PRESENT',
+    ABSENT: 'ABSENT',
+    LATE: 'LATE',
+    EXCUSED: 'EXCUSED',
+  },
+
+  HOMEWORK_TYPES: {
+    URL: 'URL',
+    TEXT: 'TEXT',
+    VOCABULARY: 'VOCABULARY',
+  },
+
+  SUBMISSION_STATUS: {
+    PENDING: 'PENDING',
+    SUBMITTED: 'SUBMITTED',
+    REVIEWED: 'REVIEWED',
+    APPROVED: 'APPROVED',
+    REJECTED: 'REJECTED',
+  },
+
+  SPEAKING_TEST_STATUS: {
+    PENDING: 'PENDING',
+    IN_PROGRESS: 'IN_PROGRESS',
+    COMPLETED: 'COMPLETED',
+    FAILED: 'FAILED',
+  },
+
+  DAYS_OF_WEEK: ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'],
+
+  PAGINATION: {
+    DEFAULT_PAGE: 1,
+    DEFAULT_LIMIT: 20,
+    MAX_LIMIT: 100,
+  },
+
+  // Role hierarchy: who can create whom
+  ROLE_CREATION_PERMISSIONS: {
+    ADMIN: ['MANAGER', 'TEACHER', 'ASSISTANT', 'STUDENT'],
+    MANAGER: ['TEACHER', 'ASSISTANT', 'STUDENT'],
+    TEACHER: ['STUDENT'],
+  },
+};
+
+
+=========================================
+FILE: src\config\database.js
+=========================================
+const mongoose = require('mongoose');
+const logger = require('../utils/logger');
+
+const connectDB = async () => {
+  try {
+    const conn = await mongoose.connect(process.env.MONGODB_URI, {
+      autoIndex: process.env.NODE_ENV !== 'production',
+    });
+
+    logger.info(`MongoDB Connected: ${conn.connection.host}`);
+
+    mongoose.connection.on('error', (err) => {
+      logger.error(`MongoDB connection error: ${err}`);
+    });
+
+    mongoose.connection.on('disconnected', () => {
+      logger.warn('MongoDB disconnected. Attempting to reconnect...');
+    });
+
+    mongoose.connection.on('reconnected', () => {
+      logger.info('MongoDB reconnected');
+    });
+
+  } catch (error) {
+    logger.error(`MongoDB connection failed: ${error.message}`);
+    process.exit(1);
+  }
+};
+
+module.exports = connectDB;
+
+
+=========================================
+FILE: src\controllers\analytics.controller.js
+=========================================
+const analyticsService = require('../services/analytics.service');
+const { sendSuccess } = require('../utils/response');
+const { asyncHandler } = require('../middlewares/error.middleware');
+
+exports.getStudentProgress = asyncHandler(async (req, res) => {
+  const studentId = req.params.studentId || req.user._id.toString();
+  const { groupId } = req.query;
+  const data = await analyticsService.getStudentProgress(studentId, groupId);
+  sendSuccess(res, { data });
+});
+
+exports.getMyProgress = asyncHandler(async (req, res) => {
+  const { groupId } = req.query;
+  const data = await analyticsService.getStudentProgress(req.user._id.toString(), groupId);
+  sendSuccess(res, { data });
+});
+
+exports.getGroupAnalytics = asyncHandler(async (req, res) => {
+  const data = await analyticsService.getGroupAnalytics(req.params.groupId);
+  sendSuccess(res, { data });
+});
+
+exports.getCenterOverview = asyncHandler(async (req, res) => {
+  const data = await analyticsService.getCenterOverview();
+  sendSuccess(res, { data });
+});
+
+
+=========================================
+FILE: src\controllers\attendance.controller.js
+=========================================
+const attendanceService = require('../services/attendance.service');
+const { sendSuccess } = require('../utils/response');
+const { asyncHandler } = require('../middlewares/error.middleware');
+
+exports.markAttendance = asyncHandler(async (req, res) => {
+  const attendance = await attendanceService.markAttendance(req.body, req.user);
+  sendSuccess(res, { data: { attendance }, message: 'Attendance marked successfully', statusCode: 201 });
+});
+
+exports.updateAttendance = asyncHandler(async (req, res) => {
+  const attendance = await attendanceService.updateAttendance(req.params.id, req.body, req.user);
+  sendSuccess(res, { data: { attendance }, message: 'Attendance updated successfully' });
+});
+
+exports.getAttendance = asyncHandler(async (req, res) => {
+  const result = await attendanceService.getAttendance(req.query);
+  sendSuccess(res, { data: result.records, meta: result.meta });
+});
+
+exports.getStudentAttendance = asyncHandler(async (req, res) => {
+  const { studentId } = req.params;
+  const { groupId } = req.query;
+  const result = await attendanceService.getStudentAttendance(studentId, groupId);
+  sendSuccess(res, { data: result });
+});
+
+exports.getMyAttendance = asyncHandler(async (req, res) => {
+  const { groupId } = req.query;
+  const result = await attendanceService.getStudentAttendance(
+    req.user._id.toString(),
+    groupId
+  );
+  sendSuccess(res, { data: result });
+});
+
+
+=========================================
+FILE: src\controllers\auth.controller.js
+=========================================
+const authService = require('../services/auth.service');
+const { sendSuccess } = require('../utils/response');
+const { asyncHandler } = require('../middlewares/error.middleware');
+
+exports.register = asyncHandler(async (req, res) => {
+  const user = await authService.register(req.body, req.user || null);
+  sendSuccess(res, { data: { user }, message: 'User registered successfully', statusCode: 201 });
+});
+
+exports.login = asyncHandler(async (req, res) => {
+  const { phone, password } = req.body;
+  const result = await authService.login(
+    phone,
+    password,
+    req.ip,
+    req.headers['user-agent']
+  );
+  sendSuccess(res, { data: result, message: 'Login successful' });
+});
+
+exports.refreshToken = asyncHandler(async (req, res) => {
+  const tokens = await authService.refreshTokens(req.body.refreshToken);
+  sendSuccess(res, { data: tokens, message: 'Tokens refreshed' });
+});
+
+exports.logout = asyncHandler(async (req, res) => {
+  await authService.logout(req.user._id);
+  sendSuccess(res, { message: 'Logged out successfully' });
+});
+
+exports.me = asyncHandler(async (req, res) => {
+  sendSuccess(res, { data: { user: req.user } });
+});
+
+exports.changePassword = asyncHandler(async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  await authService.changePassword(req.user._id, currentPassword, newPassword);
+  sendSuccess(res, { message: 'Password changed successfully' });
+});
+
+
+=========================================
+FILE: src\controllers\group.controller.js
+=========================================
+const groupService = require('../services/group.service');
+const { sendSuccess } = require('../utils/response');
+const { asyncHandler } = require('../middlewares/error.middleware');
+
+exports.getGroups = asyncHandler(async (req, res) => {
+  const result = await groupService.getGroups(req.query, req.user);
+  sendSuccess(res, { data: result.groups, meta: result.meta });
+});
+
+exports.getGroupById = asyncHandler(async (req, res) => {
+  const group = await groupService.getGroupById(req.params.id);
+  sendSuccess(res, { data: { group } });
+});
+
+exports.createGroup = asyncHandler(async (req, res) => {
+  const group = await groupService.createGroup(req.body, req.user);
+  sendSuccess(res, { data: { group }, message: 'Group created successfully', statusCode: 201 });
+});
+
+exports.updateGroup = asyncHandler(async (req, res) => {
+  const group = await groupService.updateGroup(req.params.id, req.body, req.user);
+  sendSuccess(res, { data: { group }, message: 'Group updated successfully' });
+});
+
+exports.deleteGroup = asyncHandler(async (req, res) => {
+  await groupService.softDeleteGroup(req.params.id, req.user);
+  sendSuccess(res, { message: 'Group deleted successfully' });
+});
+
+exports.addStudent = asyncHandler(async (req, res) => {
+  const group = await groupService.addStudent(req.params.id, req.body.studentId, req.user);
+  sendSuccess(res, { data: { group }, message: 'Student added to group' });
+});
+
+exports.removeStudent = asyncHandler(async (req, res) => {
+  await groupService.removeStudent(req.params.id, req.params.studentId, req.user);
+  sendSuccess(res, { message: 'Student removed from group' });
+});
+
+
+=========================================
+FILE: src\controllers\homework.controller.js
+=========================================
+const homeworkService = require('../services/homework.service');
+const { sendSuccess } = require('../utils/response');
+const { asyncHandler } = require('../middlewares/error.middleware');
+
+exports.getHomework = asyncHandler(async (req, res) => {
+  const result = await homeworkService.getHomework(req.query, req.user);
+  sendSuccess(res, { data: result.homework, meta: result.meta });
+});
+
+exports.getHomeworkById = asyncHandler(async (req, res) => {
+  const homework = await homeworkService.getHomeworkById(req.params.id, req.user);
+  sendSuccess(res, { data: { homework } });
+});
+
+exports.createHomework = asyncHandler(async (req, res) => {
+  const homework = await homeworkService.createHomework(req.body, req.user);
+  sendSuccess(res, { data: { homework }, message: 'Homework created successfully', statusCode: 201 });
+});
+
+exports.updateHomework = asyncHandler(async (req, res) => {
+  const homework = await homeworkService.updateHomework(req.params.id, req.body, req.user);
+  sendSuccess(res, { data: { homework }, message: 'Homework updated successfully' });
+});
+
+exports.publishHomework = asyncHandler(async (req, res) => {
+  const homework = await homeworkService.publishHomework(req.params.id, req.user);
+  sendSuccess(res, { data: { homework }, message: 'Homework published successfully' });
+});
+
+exports.deleteHomework = asyncHandler(async (req, res) => {
+  await homeworkService.softDeleteHomework(req.params.id, req.user);
+  sendSuccess(res, { message: 'Homework deleted successfully' });
+});
+
+exports.getHomeworkStats = asyncHandler(async (req, res) => {
+  const stats = await homeworkService.getHomeworkStats(req.params.groupId);
+  sendSuccess(res, { data: stats });
+});
+
+
+=========================================
+FILE: src\controllers\speakingResult.controller.js
+=========================================
+const speakingResultService = require('../services/speakingResult.service');
+const { sendSuccess } = require('../utils/response');
+const { asyncHandler } = require('../middlewares/error.middleware');
+
+exports.approveStudent = asyncHandler(async (req, res) => {
+  const { homework, student } = req.body;
+  const result = await speakingResultService.approveStudentForTest(homework, student, req.user);
+  sendSuccess(res, {
+    data: { result },
+    message: 'Student approved for speaking test',
+    statusCode: 201,
+  });
+});
+
+exports.submitResult = asyncHandler(async (req, res) => {
+  const result = await speakingResultService.submitResult(req.body, req.user);
+  sendSuccess(res, { data: { result }, message: 'Speaking result submitted successfully' });
+});
+
+exports.getResults = asyncHandler(async (req, res) => {
+  const result = await speakingResultService.getResults(req.query, req.user);
+  sendSuccess(res, { data: result.results, meta: result.meta });
+});
+
+exports.getResultById = asyncHandler(async (req, res) => {
+  const result = await speakingResultService.getResultById(req.params.id, req.user);
+  sendSuccess(res, { data: { result } });
+});
+
+exports.addTeacherNote = asyncHandler(async (req, res) => {
+  const result = await speakingResultService.addTeacherNote(
+    req.params.id,
+    req.body.teacherNote,
+    req.user
+  );
+  sendSuccess(res, { data: { result }, message: 'Teacher note added' });
+});
+
+exports.getStudentProgress = asyncHandler(async (req, res) => {
+  const result = await speakingResultService.getStudentProgress(
+    req.params.studentId,
+    req.query.groupId
+  );
+  sendSuccess(res, { data: result });
+});
+
+
+=========================================
+FILE: src\controllers\submission.controller.js
+=========================================
+const submissionService = require('../services/submission.service');
+const { sendSuccess } = require('../utils/response');
+const { asyncHandler } = require('../middlewares/error.middleware');
+
+exports.getSubmissions = asyncHandler(async (req, res) => {
+  const result = await submissionService.getSubmissions(req.query, req.user);
+  sendSuccess(res, { data: result.submissions, meta: result.meta });
+});
+
+exports.getSubmissionById = asyncHandler(async (req, res) => {
+  const submission = await submissionService.getSubmissionById(req.params.id, req.user);
+  sendSuccess(res, { data: { submission } });
+});
+
+exports.submitHomework = asyncHandler(async (req, res) => {
+  const submission = await submissionService.submitHomework(
+    req.params.homeworkId,
+    req.body,
+    req.user
+  );
+  sendSuccess(res, {
+    data: { submission },
+    message: 'Homework submitted successfully',
+    statusCode: 201,
+  });
+});
+
+exports.reviewSubmission = asyncHandler(async (req, res) => {
+  const submission = await submissionService.reviewSubmission(
+    req.params.id,
+    req.body,
+    req.user
+  );
+  sendSuccess(res, { data: { submission }, message: 'Submission reviewed successfully' });
+});
+
+exports.getGroupStats = asyncHandler(async (req, res) => {
+  const stats = await submissionService.getGroupSubmissionStats(
+    req.params.groupId,
+    req.query.homeworkId
+  );
+  sendSuccess(res, { data: stats });
+});
+
+
+=========================================
+FILE: src\controllers\user.controller.js
+=========================================
+const userService = require('../services/user.service');
+const { sendSuccess } = require('../utils/response');
+const { asyncHandler } = require('../middlewares/error.middleware');
+
+exports.getUsers = asyncHandler(async (req, res) => {
+  const result = await userService.getUsers(req.query, req.user);
+  sendSuccess(res, { data: result.users, meta: result.meta });
+});
+
+exports.getUserById = asyncHandler(async (req, res) => {
+  const user = await userService.getUserById(req.params.id);
+  sendSuccess(res, { data: { user } });
+});
+
+exports.createUser = asyncHandler(async (req, res) => {
+  const user = await userService.createUser(req.body, req.user);
+  sendSuccess(res, { data: { user }, message: 'User created successfully', statusCode: 201 });
+});
+
+exports.updateUser = asyncHandler(async (req, res) => {
+  const user = await userService.updateUser(req.params.id, req.body, req.user);
+  sendSuccess(res, { data: { user }, message: 'User updated successfully' });
+});
+
+exports.updateProfile = asyncHandler(async (req, res) => {
+  const user = await userService.updateProfile(req.user._id, req.body);
+  sendSuccess(res, { data: { user }, message: 'Profile updated successfully' });
+});
+
+exports.deleteUser = asyncHandler(async (req, res) => {
+  await userService.softDeleteUser(req.params.id, req.user);
+  sendSuccess(res, { message: 'User deleted successfully' });
+});
+
+exports.toggleUserStatus = asyncHandler(async (req, res) => {
+  const result = await userService.toggleUserStatus(req.params.id, req.user);
+  sendSuccess(res, { data: result, message: `User ${result.isActive ? 'activated' : 'deactivated'}` });
+});
+
+
+=========================================
+FILE: src\controllers\vocabulary.controller.js
+=========================================
+const vocabularyService = require('../services/vocabulary.service');
+const { sendSuccess } = require('../utils/response');
+const { asyncHandler } = require('../middlewares/error.middleware');
+
+exports.getVocabularies = asyncHandler(async (req, res) => {
+  const result = await vocabularyService.getVocabularies(req.query, req.user);
+  sendSuccess(res, { data: result.vocabularies, meta: result.meta });
+});
+
+exports.getVocabularyById = asyncHandler(async (req, res) => {
+  const vocabulary = await vocabularyService.getVocabularyById(req.params.id);
+  sendSuccess(res, { data: { vocabulary } });
+});
+
+exports.createVocabulary = asyncHandler(async (req, res) => {
+  const vocabulary = await vocabularyService.createVocabulary(req.body, req.user);
+  sendSuccess(res, { data: { vocabulary }, message: 'Vocabulary created successfully', statusCode: 201 });
+});
+
+exports.updateVocabulary = asyncHandler(async (req, res) => {
+  const vocabulary = await vocabularyService.updateVocabulary(req.params.id, req.body, req.user);
+  sendSuccess(res, { data: { vocabulary }, message: 'Vocabulary updated successfully' });
+});
+
+exports.updateItemTranslation = asyncHandler(async (req, res) => {
+  const { itemId, editedTranslation } = req.body;
+  const vocabulary = await vocabularyService.updateItemTranslation(
+    req.params.id,
+    itemId,
+    editedTranslation,
+    req.user
+  );
+  sendSuccess(res, { data: { vocabulary }, message: 'Translation updated successfully' });
+});
+
+exports.deleteVocabulary = asyncHandler(async (req, res) => {
+  await vocabularyService.softDeleteVocabulary(req.params.id, req.user);
+  sendSuccess(res, { message: 'Vocabulary deleted successfully' });
+});
+
+
+=========================================
+FILE: src\middlewares\auth.middleware.js
+=========================================
+const { verifyAccessToken } = require('../utils/jwt');
+const { AuthenticationError, AuthorizationError } = require('../utils/AppError');
+const User = require('../models/User');
+
+/**
+ * Verify JWT and attach user to request
+ */
+const authenticate = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new AuthenticationError('No token provided');
+    }
+
+    const token = authHeader.split(' ')[1];
+    const decoded = verifyAccessToken(token);
+
+    const user = await User.findById(decoded.userId).select('-password -refreshToken');
+    if (!user) {
+      throw new AuthenticationError('User not found');
+    }
+    if (!user.isActive) {
+      throw new AuthenticationError('Account is deactivated');
+    }
+    if (user.isDeleted) {
+      throw new AuthenticationError('Account has been deleted');
+    }
+
+    req.user = user;
+    next();
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Authorize specific roles
+ * Usage: authorize('ADMIN', 'MANAGER')
+ */
+const authorize = (...roles) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return next(new AuthenticationError());
+    }
+    if (!roles.includes(req.user.role)) {
+      return next(
+        new AuthorizationError(
+          `Role '${req.user.role}' is not authorized for this action`
+        )
+      );
+    }
+    next();
+  };
+};
+
+/**
+ * Authorize if user is the resource owner OR has one of the given roles
+ * Usage: authorizeOwnerOrRoles('userId', 'ADMIN', 'MANAGER')
+ */
+const authorizeOwnerOrRoles = (paramName, ...roles) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return next(new AuthenticationError());
+    }
+    const isOwner = req.user._id.toString() === req.params[paramName];
+    const hasRole = roles.includes(req.user.role);
+    if (!isOwner && !hasRole) {
+      return next(new AuthorizationError());
+    }
+    next();
+  };
+};
+
+module.exports = { authenticate, authorize, authorizeOwnerOrRoles };
+
+
+=========================================
+FILE: src\middlewares\error.middleware.js
+=========================================
+const logger = require('../utils/logger');
+const { AppError } = require('../utils/AppError');
+
+const errorHandler = (err, req, res, next) => {
+  let statusCode = err.statusCode || 500;
+  let message = err.message || 'Internal Server Error';
+  let errors = err.errors || null;
+
+  // Mongoose CastError (invalid ObjectId)
+  if (err.name === 'CastError') {
+    statusCode = 400;
+    message = `Invalid ${err.path}: ${err.value}`;
+  }
+
+  // Mongoose duplicate key
+  if (err.code === 11000) {
+    statusCode = 409;
+    const field = Object.keys(err.keyValue)[0];
+    const value = err.keyValue[field];
+    message = `${field} '${value}' already exists`;
+  }
+
+  // Mongoose validation error
+  if (err.name === 'ValidationError') {
+    statusCode = 422;
+    message = 'Validation error';
+    errors = Object.values(err.errors).map((e) => ({
+      field: e.path,
+      message: e.message,
+    }));
+  }
+
+  // JWT errors (not caught by middleware)
+  if (err.name === 'JsonWebTokenError') {
+    statusCode = 401;
+    message = 'Invalid token';
+  }
+  if (err.name === 'TokenExpiredError') {
+    statusCode = 401;
+    message = 'Token expired';
+  }
+
+  // Log errors
+  if (statusCode >= 500) {
+    logger.error(`${req.method} ${req.originalUrl} - ${message}`, {
+      stack: err.stack,
+      body: req.body,
+      user: req.user?._id,
+    });
+  } else {
+    logger.warn(`${req.method} ${req.originalUrl} - ${statusCode} - ${message}`);
+  }
+
+  const response = {
+    success: false,
+    message,
+  };
+
+  if (errors) response.errors = errors;
+
+  // Include stack trace in development
+  if (process.env.NODE_ENV === 'development') {
+    response.stack = err.stack;
+  }
+
+  res.status(statusCode).json(response);
+};
+
+// Catch async errors
+const asyncHandler = (fn) => (req, res, next) => {
+  Promise.resolve(fn(req, res, next)).catch(next);
+};
+
+module.exports = { errorHandler, asyncHandler };
+
+
+=========================================
+FILE: src\middlewares\group.middleware.js
+=========================================
+const Group = require('../models/Group');
+const { AuthorizationError, NotFoundError } = require('../utils/AppError');
+const { ROLES } = require('../config/constants');
+
+/**
+ * Verify that the authenticated teacher/assistant belongs to this group
+ * Admins and Managers bypass this check
+ */
+const requireGroupMembership = async (req, res, next) => {
+  try {
+    const { ADMIN, MANAGER } = ROLES;
+    if ([ADMIN, MANAGER].includes(req.user.role)) return next();
+
+    const groupId = req.params.groupId || req.body.group || req.query.group;
+    if (!groupId) return next();
+
+    const group = await Group.findById(groupId).select('teacher assistant');
+    if (!group) return next(new NotFoundError('Group'));
+
+    const userId = req.user._id.toString();
+    const isTeacher = group.teacher?.toString() === userId;
+    const isAssistant = group.assistant?.toString() === userId;
+
+    if (!isTeacher && !isAssistant) {
+      return next(new AuthorizationError('You are not a member of this group'));
+    }
+
+    req.group = group;
+    next();
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Verify the student belongs to the group
+ */
+const requireStudentInGroup = async (req, res, next) => {
+  try {
+    const groupId = req.params.groupId || req.body.group;
+    if (!groupId) return next();
+
+    const group = await Group.findById(groupId).select('students');
+    if (!group) return next(new NotFoundError('Group'));
+
+    const userId = req.user._id.toString();
+    const isInGroup = group.students.some((s) => s.toString() === userId);
+
+    if (!isInGroup) {
+      return next(new AuthorizationError('You are not a student in this group'));
+    }
+
+    next();
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { requireGroupMembership, requireStudentInGroup };
+
+
+=========================================
+FILE: src\middlewares\rateLimiter.middleware.js
+=========================================
+const rateLimit = require('express-rate-limit');
+const { AppError } = require('../utils/AppError');
+
+const createLimiter = (windowMs, max, message) =>
+  rateLimit({
+    windowMs,
+    max,
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler: (req, res, next) => {
+      next(new AppError(message, 429));
+    },
+  });
+
+// General API limiter
+const apiLimiter = createLimiter(
+  parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
+  parseInt(process.env.RATE_LIMIT_MAX) || 100,
+  'Too many requests, please try again later'
+);
+
+// Strict limiter for auth endpoints
+const authLimiter = createLimiter(
+  15 * 60 * 1000, // 15 min
+  20,
+  'Too many authentication attempts, please try again in 15 minutes'
+);
+
+// Very strict for password change
+const passwordLimiter = createLimiter(
+  60 * 60 * 1000, // 1 hour
+  5,
+  'Too many password change attempts, please try again in 1 hour'
+);
+
+module.exports = { apiLimiter, authLimiter, passwordLimiter };
+
+
+=========================================
+FILE: src\middlewares\validate.middleware.js
+=========================================
+const { ValidationError } = require('../utils/AppError');
+
+/**
+ * Joi validation middleware factory
+ * @param {Object} schema - Joi schema
+ * @param {'body'|'query'|'params'} source - where to validate
+ */
+const validate = (schema, source = 'body') => {
+  return (req, res, next) => {
+    const data = req[source];
+    const { error, value } = schema.validate(data, {
+      abortEarly: false,
+      stripUnknown: true,
+      convert: true,
+    });
+
+    if (error) {
+      const errors = error.details.map((d) => ({
+        field: d.path.join('.'),
+        message: d.message.replace(/['"]/g, ''),
+      }));
+      return next(new ValidationError(errors));
+    }
+
+    req[source] = value;
+    next();
+  };
+};
+
+module.exports = { validate };
+
+
+=========================================
+FILE: src\models\Attendance.js
+=========================================
+const mongoose = require('mongoose');
+const { ATTENDANCE_STATUS } = require('../config/constants');
+
+const attendanceRecordSchema = new mongoose.Schema(
+  {
+    student: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    status: {
+      type: String,
+      enum: Object.values(ATTENDANCE_STATUS),
+      required: true,
+      default: ATTENDANCE_STATUS.ABSENT,
+    },
+    note: {
+      type: String,
+      trim: true,
+      maxlength: 200,
+    },
+  },
+  { _id: false }
+);
+
+const attendanceSchema = new mongoose.Schema(
+  {
+    group: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Group',
+      required: true,
+    },
+    date: {
+      type: Date,
+      required: true,
+    },
+    records: [attendanceRecordSchema],
+    markedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    updatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    topic: {
+      type: String,
+      trim: true,
+      maxlength: 200,
+    },
+    notes: {
+      type: String,
+      trim: true,
+      maxlength: 500,
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+// Compound index: one attendance record per group per day
+attendanceSchema.index({ group: 1, date: 1 }, { unique: true });
+attendanceSchema.index({ date: 1 });
+attendanceSchema.index({ 'records.student': 1 });
+attendanceSchema.index({ group: 1, date: -1 });
+
+module.exports = mongoose.model('Attendance', attendanceSchema);
+
+
+=========================================
+FILE: src\models\AuditLog.js
+=========================================
+const mongoose = require('mongoose');
+
+const auditLogSchema = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    action: {
+      type: String,
+      required: true,
+      uppercase: true,
+    },
+    resource: {
+      type: String,
+      required: true,
+    },
+    resourceId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
+    },
+    details: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
+    ip: String,
+    userAgent: String,
+  },
+  {
+    timestamps: true,
+  }
+);
+
+auditLogSchema.index({ user: 1, createdAt: -1 });
+auditLogSchema.index({ resource: 1, resourceId: 1 });
+auditLogSchema.index({ action: 1 });
+auditLogSchema.index({ createdAt: -1 });
+
+// Auto-expire logs after 90 days in production
+if (process.env.NODE_ENV === 'production') {
+  auditLogSchema.index({ createdAt: 1 }, { expireAfterSeconds: 7776000 });
+}
+
+module.exports = mongoose.model('AuditLog', auditLogSchema);
+
+
+=========================================
+FILE: src\models\Group.js
+=========================================
+const mongoose = require('mongoose');
+const { DAYS_OF_WEEK } = require('../config/constants');
+
+const scheduleSchema = new mongoose.Schema(
+  {
+    days: [
+      {
+        type: String,
+        enum: DAYS_OF_WEEK,
+      },
+    ],
+    startTime: {
+      type: String,
+      required: true,
+      match: [/^([01]\d|2[0-3]):([0-5]\d)$/, 'Invalid time format (HH:mm)'],
+    },
+    endTime: {
+      type: String,
+      required: true,
+      match: [/^([01]\d|2[0-3]):([0-5]\d)$/, 'Invalid time format (HH:mm)'],
+    },
+    room: {
+      type: String,
+      trim: true,
+    },
+  },
+  { _id: false }
+);
+
+const groupSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: [true, 'Group name is required'],
+      trim: true,
+      maxlength: 100,
+    },
+    description: {
+      type: String,
+      trim: true,
+      maxlength: 500,
+    },
+    teacher: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: [true, 'Teacher is required'],
+    },
+    assistant: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    students: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
+    schedule: scheduleSchema,
+    level: {
+      type: String,
+      enum: ['BEGINNER', 'ELEMENTARY', 'PRE_INTERMEDIATE', 'INTERMEDIATE', 'UPPER_INTERMEDIATE', 'ADVANCED'],
+      default: 'BEGINNER',
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
+    startDate: {
+      type: Date,
+      required: true,
+    },
+    endDate: {
+      type: Date,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    maxStudents: {
+      type: Number,
+      default: 20,
+      min: 1,
+      max: 50,
+    },
+  },
+  {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+  }
+);
+
+// Indexes
+groupSchema.index({ teacher: 1 });
+groupSchema.index({ assistant: 1 });
+groupSchema.index({ isDeleted: 1, isActive: 1 });
+groupSchema.index({ name: 'text' });
+
+// Virtual: student count
+groupSchema.virtual('studentCount').get(function () {
+  return this.students ? this.students.length : 0;
+});
+
+module.exports = mongoose.model('Group', groupSchema);
+
+
+=========================================
+FILE: src\models\Homework.js
+=========================================
+const mongoose = require('mongoose');
+const { HOMEWORK_TYPES } = require('../config/constants');
+
+const homeworkSchema = new mongoose.Schema(
+  {
+    title: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 200,
+    },
+    description: {
+      type: String,
+      trim: true,
+      maxlength: 1000,
+    },
+    type: {
+      type: String,
+      enum: Object.values(HOMEWORK_TYPES),
+      required: true,
+    },
+    group: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Group',
+      required: true,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    dueDate: {
+      type: Date,
+      required: true,
+    },
+
+    // TYPE: URL
+    resourceUrl: {
+      type: String,
+      trim: true,
+    },
+    urlDescription: {
+      type: String,
+      trim: true,
+      maxlength: 500,
+    },
+
+    // TYPE: TEXT
+    textContent: {
+      type: String,
+      trim: true,
+      maxlength: 5000,
+    },
+
+    // TYPE: VOCABULARY
+    vocabulary: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Vocabulary',
+    },
+    // Speaking test time limit in seconds
+    timeLimitSeconds: {
+      type: Number,
+      default: 60,
+      min: 10,
+      max: 600,
+    },
+
+    isPublished: {
+      type: Boolean,
+      default: false,
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+homeworkSchema.index({ group: 1, dueDate: -1 });
+homeworkSchema.index({ createdBy: 1 });
+homeworkSchema.index({ isDeleted: 1 });
+homeworkSchema.index({ type: 1 });
+
+module.exports = mongoose.model('Homework', homeworkSchema);
+
+
+=========================================
+FILE: src\models\SpeakingResult.js
+=========================================
+const mongoose = require('mongoose');
+const { SPEAKING_TEST_STATUS } = require('../config/constants');
+
+/**
+ * SpeakingResult — stores only metadata about speaking tests.
+ * No audio is stored. Designed for future AI speech recognition integration.
+ */
+const speakingResultSchema = new mongoose.Schema(
+  {
+    student: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    homework: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Homework',
+      required: true,
+    },
+    group: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Group',
+      required: true,
+    },
+    vocabulary: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Vocabulary',
+      required: true,
+    },
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    status: {
+      type: String,
+      enum: Object.values(SPEAKING_TEST_STATUS),
+      default: SPEAKING_TEST_STATUS.PENDING,
+    },
+
+    // Aggregate results — no audio stored
+    totalWords: {
+      type: Number,
+      default: 0,
+    },
+    correctWords: {
+      type: Number,
+      default: 0,
+    },
+    incorrectWords: {
+      type: Number,
+      default: 0,
+    },
+    score: {
+      type: Number,
+      min: 0,
+      max: 100,
+      default: 0,
+    },
+    durationSeconds: {
+      type: Number,
+      default: 0,
+    },
+    timeLimitSeconds: {
+      type: Number,
+      required: true,
+    },
+    completedWithinLimit: {
+      type: Boolean,
+      default: false,
+    },
+
+    // Per-word results (no audio, just pass/fail)
+    wordResults: [
+      {
+        vocabularyItemId: mongoose.Schema.Types.ObjectId,
+        word: String,
+        isCorrect: Boolean,
+        timeTakenSeconds: Number,
+        // Future AI field: can store confidence score from speech recognition
+        aiConfidence: {
+          type: Number,
+          default: null,
+        },
+      },
+    ],
+
+    // AI integration hook (future)
+    aiProcessed: {
+      type: Boolean,
+      default: false,
+    },
+    aiProvider: {
+      type: String,
+      default: null,
+    },
+    aiMetadata: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+
+    startedAt: {
+      type: Date,
+    },
+    completedAt: {
+      type: Date,
+    },
+    teacherNote: {
+      type: String,
+      trim: true,
+      maxlength: 500,
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+speakingResultSchema.index({ student: 1, homework: 1 });
+speakingResultSchema.index({ group: 1, status: 1 });
+speakingResultSchema.index({ approvedBy: 1 });
+speakingResultSchema.index({ student: 1, createdAt: -1 });
+
+module.exports = mongoose.model('SpeakingResult', speakingResultSchema);
+
+
+=========================================
+FILE: src\models\Submission.js
+=========================================
+const mongoose = require('mongoose');
+const { SUBMISSION_STATUS, HOMEWORK_TYPES } = require('../config/constants');
+
+const vocabularyAnswerSchema = new mongoose.Schema(
+  {
+    vocabularyItemId: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: true,
+    },
+    word: String,
+    isCorrect: {
+      type: Boolean,
+      default: false,
+    },
+    studentAnswer: String,
+    timeTakenSeconds: Number,
+  },
+  { _id: false }
+);
+
+const submissionSchema = new mongoose.Schema(
+  {
+    homework: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Homework',
+      required: true,
+    },
+    student: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    group: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Group',
+      required: true,
+    },
+    status: {
+      type: String,
+      enum: Object.values(SUBMISSION_STATUS),
+      default: SUBMISSION_STATUS.PENDING,
+    },
+
+    // TEXT homework submission
+    textAnswer: {
+      type: String,
+      trim: true,
+      maxlength: 10000,
+    },
+
+    // URL homework: student notes/comments
+    urlNote: {
+      type: String,
+      trim: true,
+      maxlength: 1000,
+    },
+
+    // VOCABULARY homework answers (from mobile speaking test)
+    vocabularyAnswers: [vocabularyAnswerSchema],
+
+    // Score (for vocabulary: auto-calculated, for text: teacher-given)
+    score: {
+      type: Number,
+      min: 0,
+      max: 100,
+      default: null,
+    },
+
+    // Teacher/Assistant review
+    feedback: {
+      type: String,
+      trim: true,
+      maxlength: 1000,
+    },
+    reviewedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    reviewedAt: {
+      type: Date,
+      default: null,
+    },
+
+    submittedAt: {
+      type: Date,
+      default: null,
+    },
+    isLate: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+// Unique: one submission per student per homework
+submissionSchema.index({ homework: 1, student: 1 }, { unique: true });
+submissionSchema.index({ student: 1, status: 1 });
+submissionSchema.index({ group: 1, status: 1 });
+submissionSchema.index({ homework: 1, status: 1 });
+
+module.exports = mongoose.model('Submission', submissionSchema);
+
+
+=========================================
+FILE: src\models\User.js
+=========================================
+const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+const { ROLES } = require('../config/constants');
+
+const userSchema = new mongoose.Schema(
+  {
+    firstName: {
+      type: String,
+      required: [true, 'First name is required'],
+      trim: true,
+      maxlength: 50,
+    },
+    lastName: {
+      type: String,
+      required: [true, 'Last name is required'],
+      trim: true,
+      maxlength: 50,
+    },
+    phone: {
+      type: String,
+      required: [true, 'Phone number is required'],
+      unique: true,
+      trim: true,
+      match: [/^\+?[\d\s\-()]{7,20}$/, 'Invalid phone number'],
+    },
+    email: {
+      type: String,
+      unique: true,
+      sparse: true,
+      lowercase: true,
+      trim: true,
+      match: [/^\S+@\S+\.\S+$/, 'Invalid email'],
+    },
+    password: {
+      type: String,
+      required: [true, 'Password is required'],
+      minlength: 6,
+      select: false,
+    },
+    role: {
+      type: String,
+      enum: Object.values(ROLES),
+      required: true,
+    },
+    avatar: {
+      type: String,
+      default: null,
+    },
+    refreshToken: {
+      type: String,
+      select: false,
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    lastLoginAt: {
+      type: Date,
+      default: null,
+    },
+    // For students: reference to groups
+    groups: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Group',
+      },
+    ],
+  },
+  {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+  }
+);
+
+// Indexes
+userSchema.index({ phone: 1 });
+userSchema.index({ email: 1 });
+userSchema.index({ role: 1 });
+userSchema.index({ isDeleted: 1, isActive: 1 });
+userSchema.index({ firstName: 'text', lastName: 'text', phone: 'text' });
+
+// Virtual: full name
+userSchema.virtual('fullName').get(function () {
+  return `${this.firstName} ${this.lastName}`;
+});
+
+// Pre-save: hash password
+userSchema.pre('save', async function (next) {
+  if (!this.isModified('password')) return next();
+  this.password = await bcrypt.hash(this.password, parseInt(process.env.BCRYPT_SALT_ROUNDS) || 12);
+  next();
+});
+
+// Instance method: compare password
+userSchema.methods.comparePassword = async function (candidatePassword) {
+  return bcrypt.compare(candidatePassword, this.password);
+};
+
+// Instance method: safe profile (no sensitive fields)
+userSchema.methods.toSafeObject = function () {
+  const obj = this.toObject();
+  delete obj.password;
+  delete obj.refreshToken;
+  delete obj.__v;
+  return obj;
+};
+
+module.exports = mongoose.model('User', userSchema);
+
+
+=========================================
+FILE: src\models\Vocabulary.js
+=========================================
+const mongoose = require('mongoose');
+
+const vocabularyItemSchema = new mongoose.Schema(
+  {
+    word: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 100,
+    },
+    language: {
+      type: String,
+      enum: ['EN', 'UZ'],
+      required: true,
+    },
+    translation: {
+      type: String,
+      trim: true,
+      maxlength: 200,
+    },
+    // Auto-translated from mobile, stored here
+    autoTranslation: {
+      type: String,
+      trim: true,
+      maxlength: 200,
+    },
+    // Teacher can override auto-translation
+    editedTranslation: {
+      type: String,
+      trim: true,
+      maxlength: 200,
+    },
+    pronunciation: {
+      type: String,
+      trim: true,
+    },
+    example: {
+      type: String,
+      trim: true,
+      maxlength: 300,
+    },
+    imageUrl: {
+      type: String,
+      trim: true,
+    },
+  },
+  { _id: true }
+);
+
+const vocabularySchema = new mongoose.Schema(
+  {
+    title: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 200,
+    },
+    group: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Group',
+      required: true,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    items: [vocabularyItemSchema],
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+vocabularySchema.index({ group: 1 });
+vocabularySchema.index({ createdBy: 1 });
+
+module.exports = mongoose.model('Vocabulary', vocabularySchema);
+
+
+=========================================
+FILE: src\routes\analytics.routes.js
+=========================================
+const router = require('express').Router();
+const analyticsController = require('../controllers/analytics.controller');
+const { authenticate, authorize } = require('../middlewares/auth.middleware');
+const { ROLES } = require('../config/constants');
+
+const { ADMIN, MANAGER, TEACHER, ASSISTANT, STUDENT } = ROLES;
+
+router.use(authenticate);
+
+// Student views own progress
+router.get('/me/progress', authorize(STUDENT), analyticsController.getMyProgress);
+
+// Teacher/Admin views a specific student's progress
+router.get(
+  '/students/:studentId/progress',
+  authorize(ADMIN, MANAGER, TEACHER, ASSISTANT),
+  analyticsController.getStudentProgress
+);
+
+// Group analytics
+router.get(
+  '/groups/:groupId',
+  authorize(ADMIN, MANAGER, TEACHER, ASSISTANT),
+  analyticsController.getGroupAnalytics
+);
+
+// Center-wide overview
+router.get(
+  '/overview',
+  authorize(ADMIN, MANAGER),
+  analyticsController.getCenterOverview
+);
+
+module.exports = router;
+
+
+=========================================
+FILE: src\routes\attendance.routes.js
+=========================================
+const router = require('express').Router();
+const attendanceController = require('../controllers/attendance.controller');
+const { authenticate, authorize } = require('../middlewares/auth.middleware');
+const { validate } = require('../middlewares/validate.middleware');
+const {
+  markAttendanceSchema,
+  updateAttendanceSchema,
+  attendanceQuerySchema,
+} = require('../validators/attendance.validator');
+const { ROLES } = require('../config/constants');
+
+const { ADMIN, MANAGER, TEACHER, ASSISTANT, STUDENT } = ROLES;
+
+router.use(authenticate);
+
+// Student: view own attendance
+router.get('/me', authorize(STUDENT), attendanceController.getMyAttendance);
+
+// All roles can view attendance list (filtered by service layer)
+router.get(
+  '/',
+  authorize(ADMIN, MANAGER, TEACHER, ASSISTANT),
+  validate(attendanceQuerySchema, 'query'),
+  attendanceController.getAttendance
+);
+
+// Student attendance summary by student ID
+router.get(
+  '/student/:studentId',
+  authorize(ADMIN, MANAGER, TEACHER, ASSISTANT),
+  attendanceController.getStudentAttendance
+);
+
+// Mark new attendance
+router.post(
+  '/',
+  authorize(TEACHER, ASSISTANT),
+  validate(markAttendanceSchema),
+  attendanceController.markAttendance
+);
+
+// Update existing attendance record
+router.patch(
+  '/:id',
+  authorize(TEACHER, ASSISTANT, ADMIN, MANAGER),
+  validate(updateAttendanceSchema),
+  attendanceController.updateAttendance
+);
+
+module.exports = router;
+
+
+=========================================
+FILE: src\routes\auth.routes.js
+=========================================
+const router = require('express').Router();
+const authController = require('../controllers/auth.controller');
+const { authenticate } = require('../middlewares/auth.middleware');
+const { validate } = require('../middlewares/validate.middleware');
+const { authLimiter, passwordLimiter } = require('../middlewares/rateLimiter.middleware');
+const {
+  loginSchema,
+  refreshTokenSchema,
+  changePasswordSchema,
+} = require('../validators/auth.validator');
+
+// Public
+router.post('/login', authLimiter, validate(loginSchema), authController.login);
+router.post('/refresh-token', validate(refreshTokenSchema), authController.refreshToken);
+
+// Protected
+router.use(authenticate);
+router.get('/me', authController.me);
+router.post('/logout', authController.logout);
+router.patch(
+  '/change-password',
+  passwordLimiter,
+  validate(changePasswordSchema),
+  authController.changePassword
+);
+
+module.exports = router;
+
+
+=========================================
+FILE: src\routes\group.routes.js
+=========================================
+const router = require('express').Router();
+const groupController = require('../controllers/group.controller');
+const { authenticate, authorize } = require('../middlewares/auth.middleware');
+const { validate } = require('../middlewares/validate.middleware');
+const {
+  createGroupSchema,
+  updateGroupSchema,
+  addStudentSchema,
+  groupQuerySchema,
+} = require('../validators/group.validator');
+const { ROLES } = require('../config/constants');
+
+const { ADMIN, MANAGER, TEACHER, ASSISTANT, STUDENT } = ROLES;
+
+router.use(authenticate);
+
+router.get(
+  '/',
+  validate(groupQuerySchema, 'query'),
+  groupController.getGroups
+);
+
+router.get('/:id', groupController.getGroupById);
+
+router.post(
+  '/',
+  authorize(ADMIN, MANAGER),
+  validate(createGroupSchema),
+  groupController.createGroup
+);
+
+router.patch(
+  '/:id',
+  authorize(ADMIN, MANAGER),
+  validate(updateGroupSchema),
+  groupController.updateGroup
+);
+
+router.delete(
+  '/:id',
+  authorize(ADMIN, MANAGER),
+  groupController.deleteGroup
+);
+
+// Student management within group
+router.post(
+  '/:id/students',
+  authorize(ADMIN, MANAGER, TEACHER),
+  validate(addStudentSchema),
+  groupController.addStudent
+);
+
+router.delete(
+  '/:id/students/:studentId',
+  authorize(ADMIN, MANAGER, TEACHER),
+  groupController.removeStudent
+);
+
+module.exports = router;
+
+
+=========================================
+FILE: src\routes\homework.routes.js
+=========================================
+const router = require('express').Router();
+const homeworkController = require('../controllers/homework.controller');
+const { authenticate, authorize } = require('../middlewares/auth.middleware');
+const { validate } = require('../middlewares/validate.middleware');
+const {
+  createHomeworkSchema,
+  updateHomeworkSchema,
+  homeworkQuerySchema,
+} = require('../validators/homework.validator');
+const { ROLES } = require('../config/constants');
+
+const { ADMIN, MANAGER, TEACHER, ASSISTANT, STUDENT } = ROLES;
+
+router.use(authenticate);
+
+router.get(
+  '/',
+  validate(homeworkQuerySchema, 'query'),
+  homeworkController.getHomework
+);
+
+router.get('/:id', homeworkController.getHomeworkById);
+
+router.post(
+  '/',
+  authorize(TEACHER, ASSISTANT, ADMIN, MANAGER),
+  validate(createHomeworkSchema),
+  homeworkController.createHomework
+);
+
+router.patch(
+  '/:id',
+  authorize(TEACHER, ASSISTANT, ADMIN, MANAGER),
+  validate(updateHomeworkSchema),
+  homeworkController.updateHomework
+);
+
+router.patch(
+  '/:id/publish',
+  authorize(TEACHER, ADMIN, MANAGER),
+  homeworkController.publishHomework
+);
+
+router.delete(
+  '/:id',
+  authorize(TEACHER, ADMIN, MANAGER),
+  homeworkController.deleteHomework
+);
+
+// Group homework stats
+router.get(
+  '/group/:groupId/stats',
+  authorize(ADMIN, MANAGER, TEACHER, ASSISTANT),
+  homeworkController.getHomeworkStats
+);
+
+module.exports = router;
+
+
+=========================================
+FILE: src\routes\index.js
+=========================================
+const router = require('express').Router();
+
+const authRoutes = require('./auth.routes');
+const userRoutes = require('./user.routes');
+const groupRoutes = require('./group.routes');
+const attendanceRoutes = require('./attendance.routes');
+const homeworkRoutes = require('./homework.routes');
+const vocabularyRoutes = require('./vocabulary.routes');
+const submissionRoutes = require('./submission.routes');
+const speakingResultRoutes = require('./speakingResult.routes');
+const analyticsRoutes = require('./analytics.routes');
+
+router.use('/auth', authRoutes);
+router.use('/users', userRoutes);
+router.use('/groups', groupRoutes);
+router.use('/attendance', attendanceRoutes);
+router.use('/homework', homeworkRoutes);
+router.use('/vocabulary', vocabularyRoutes);
+router.use('/submissions', submissionRoutes);
+router.use('/speaking-results', speakingResultRoutes);
+router.use('/analytics', analyticsRoutes);
+
+module.exports = router;
+
+
+=========================================
+FILE: src\routes\speakingResult.routes.js
+=========================================
+const router = require('express').Router();
+const speakingResultController = require('../controllers/speakingResult.controller');
+const { authenticate, authorize } = require('../middlewares/auth.middleware');
+const { validate } = require('../middlewares/validate.middleware');
+const {
+  submitSpeakingResultSchema,
+  approveSpeakingSchema,
+  teacherNoteSchema,
+} = require('../validators/speakingResult.validator');
+const { ROLES } = require('../config/constants');
+
+const { ADMIN, MANAGER, TEACHER, ASSISTANT, STUDENT } = ROLES;
+
+router.use(authenticate);
+
+// Teacher/Assistant approves a student for speaking test
+router.post(
+  '/approve',
+  authorize(TEACHER, ASSISTANT, ADMIN, MANAGER),
+  validate(approveSpeakingSchema),
+  speakingResultController.approveStudent
+);
+
+// Student submits speaking result (processed on mobile)
+router.post(
+  '/submit',
+  authorize(STUDENT),
+  validate(submitSpeakingResultSchema),
+  speakingResultController.submitResult
+);
+
+// List results
+router.get('/', speakingResultController.getResults);
+
+// Student progress (speaking)
+router.get(
+  '/student/:studentId/progress',
+  authorize(ADMIN, MANAGER, TEACHER, ASSISTANT),
+  speakingResultController.getStudentProgress
+);
+
+router.get('/:id', speakingResultController.getResultById);
+
+// Teacher note
+router.patch(
+  '/:id/note',
+  authorize(TEACHER, ASSISTANT, ADMIN, MANAGER),
+  validate(teacherNoteSchema),
+  speakingResultController.addTeacherNote
+);
+
+module.exports = router;
+
+
+=========================================
+FILE: src\routes\submission.routes.js
+=========================================
+const router = require('express').Router();
+const submissionController = require('../controllers/submission.controller');
+const { authenticate, authorize } = require('../middlewares/auth.middleware');
+const { validate } = require('../middlewares/validate.middleware');
+const {
+  submitHomeworkSchema,
+  reviewSubmissionSchema,
+  submissionQuerySchema,
+} = require('../validators/submission.validator');
+const { ROLES } = require('../config/constants');
+
+const { ADMIN, MANAGER, TEACHER, ASSISTANT, STUDENT } = ROLES;
+
+router.use(authenticate);
+
+router.get(
+  '/',
+  validate(submissionQuerySchema, 'query'),
+  submissionController.getSubmissions
+);
+
+router.get('/:id', submissionController.getSubmissionById);
+
+// Student submits homework
+router.post(
+  '/homework/:homeworkId',
+  authorize(STUDENT),
+  validate(submitHomeworkSchema),
+  submissionController.submitHomework
+);
+
+// Teacher/Assistant reviews submission
+router.patch(
+  '/:id/review',
+  authorize(TEACHER, ASSISTANT, ADMIN, MANAGER),
+  validate(reviewSubmissionSchema),
+  submissionController.reviewSubmission
+);
+
+// Submission stats for a group
+router.get(
+  '/group/:groupId/stats',
+  authorize(ADMIN, MANAGER, TEACHER, ASSISTANT),
+  submissionController.getGroupStats
+);
+
+module.exports = router;
+
+
+=========================================
+FILE: src\routes\user.routes.js
+=========================================
+const router = require("express").Router();
+const userController = require("../controllers/user.controller");
+const {
+  authenticate,
+  authorize,
+  authorizeOwnerOrRoles,
+} = require("../middlewares/auth.middleware");
+const { validate } = require("../middlewares/validate.middleware");
+const {
+  createUserSchema,
+  updateUserSchema,
+  updateProfileSchema,
+  userQuerySchema,
+} = require("../validators/user.validator");
+const { ROLES } = require("../config/constants");
+
+const { ADMIN, MANAGER, TEACHER } = ROLES;
+
+router.use(authenticate);
+
+// My profile
+router.get("/profile", userController.updateProfile); // GET own profile handled via /auth/me
+router.patch(
+  "/profile",
+  validate(updateProfileSchema),
+  userController.updateProfile,
+);
+
+// Admin/Manager: full user management
+router.get(
+  "/",
+  authorize(ADMIN, MANAGER, TEACHER),
+  validate(userQuerySchema, "query"),
+  userController.getUsers,
+);
+
+router.post(
+  "/",
+  authorize(ADMIN, MANAGER, TEACHER),
+  validate(createUserSchema),
+  userController.createUser,
+);
+
+router.get(
+  "/:id",
+  authorize(ADMIN, MANAGER, TEACHER),
+  userController.getUserById,
+);
+
+router.patch(
+  "/:id",
+  authorize(ADMIN, MANAGER),
+  validate(updateUserSchema),
+  userController.updateUser,
+);
+
+router.patch(
+  "/:id/toggle-status",
+  authorize(ADMIN, MANAGER),
+  userController.toggleUserStatus,
+);
+
+router.delete("/:id", authorize(ADMIN), userController.deleteUser);
+
+module.exports = router;
+
+
+=========================================
+FILE: src\routes\vocabulary.routes.js
+=========================================
+const router = require('express').Router();
+const vocabularyController = require('../controllers/vocabulary.controller');
+const { authenticate, authorize } = require('../middlewares/auth.middleware');
+const { validate } = require('../middlewares/validate.middleware');
+const {
+  createVocabularySchema,
+  updateVocabularySchema,
+  updateTranslationSchema,
+} = require('../validators/vocabulary.validator');
+const { ROLES } = require('../config/constants');
+
+const { ADMIN, MANAGER, TEACHER, ASSISTANT, STUDENT } = ROLES;
+
+router.use(authenticate);
+
+router.get('/', vocabularyController.getVocabularies);
+
+router.get('/:id', vocabularyController.getVocabularyById);
+
+router.post(
+  '/',
+  authorize(TEACHER, ASSISTANT, ADMIN, MANAGER),
+  validate(createVocabularySchema),
+  vocabularyController.createVocabulary
+);
+
+router.patch(
+  '/:id',
+  authorize(TEACHER, ASSISTANT, ADMIN, MANAGER),
+  validate(updateVocabularySchema),
+  vocabularyController.updateVocabulary
+);
+
+// Update a single word's translation
+router.patch(
+  '/:id/translation',
+  authorize(TEACHER, ASSISTANT, ADMIN, MANAGER),
+  validate(updateTranslationSchema),
+  vocabularyController.updateItemTranslation
+);
+
+router.delete(
+  '/:id',
+  authorize(TEACHER, ADMIN, MANAGER),
+  vocabularyController.deleteVocabulary
+);
+
+module.exports = router;
+
+
+=========================================
+FILE: src\services\analytics.service.js
+=========================================
+const mongoose = require('mongoose');
+const Attendance = require('../models/Attendance');
+const Submission = require('../models/Submission');
+const SpeakingResult = require('../models/SpeakingResult');
+const Group = require('../models/Group');
+const User = require('../models/User');
+const Homework = require('../models/Homework');
+const { ROLES, ATTENDANCE_STATUS, SUBMISSION_STATUS } = require('../config/constants');
+
+const toOid = (id) => mongoose.Types.ObjectId.createFromHexString(id);
+
+class AnalyticsService {
+  /**
+   * Overall student progress report
+   */
+  async getStudentProgress(studentId, groupId) {
+    const filter = { student: toOid(studentId) };
+    if (groupId) filter.group = toOid(groupId);
+
+    // Attendance stats
+    const attendanceRecords = await Attendance.find({ 'records.student': toOid(studentId) })
+      .lean();
+
+    const studentAttendance = attendanceRecords.flatMap((a) =>
+      a.records.filter((r) => r.student.toString() === studentId)
+    );
+
+    const attendanceStats = {
+      total: studentAttendance.length,
+      present: studentAttendance.filter((r) => r.status === ATTENDANCE_STATUS.PRESENT).length,
+      absent: studentAttendance.filter((r) => r.status === ATTENDANCE_STATUS.ABSENT).length,
+      late: studentAttendance.filter((r) => r.status === ATTENDANCE_STATUS.LATE).length,
+    };
+    attendanceStats.rate =
+      attendanceStats.total > 0
+        ? Math.round((attendanceStats.present / attendanceStats.total) * 100)
+        : 0;
+
+    // Homework submission stats
+    const submissionStats = await Submission.aggregate([
+      { $match: filter },
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 },
+          avgScore: { $avg: '$score' },
+        },
+      },
+    ]);
+
+    const totalSubmissions = submissionStats.reduce((sum, s) => sum + s.count, 0);
+    const approved = submissionStats.find((s) => s._id === SUBMISSION_STATUS.APPROVED)?.count || 0;
+    const avgScore =
+      submissionStats.find((s) => s._id === SUBMISSION_STATUS.APPROVED)?.avgScore || 0;
+
+    // Speaking test stats
+    const speakingStats = await SpeakingResult.aggregate([
+      { $match: { ...filter, status: 'COMPLETED' } },
+      {
+        $group: {
+          _id: null,
+          totalTests: { $sum: 1 },
+          avgScore: { $avg: '$score' },
+          avgDuration: { $avg: '$durationSeconds' },
+          totalCorrect: { $sum: '$correctWords' },
+          totalWords: { $sum: '$totalWords' },
+        },
+      },
+    ]);
+
+    // Score trend over time (last 10 speaking tests)
+    const scoreTrend = await SpeakingResult.find({
+      ...filter,
+      status: 'COMPLETED',
+    })
+      .sort({ createdAt: 1 })
+      .limit(10)
+      .select('score createdAt homework')
+      .populate('homework', 'title')
+      .lean();
+
+    return {
+      attendance: attendanceStats,
+      homework: {
+        total: totalSubmissions,
+        approved,
+        completionRate:
+          totalSubmissions > 0 ? Math.round((approved / totalSubmissions) * 100) : 0,
+        avgScore: Math.round(avgScore || 0),
+        byStatus: submissionStats,
+      },
+      speaking: speakingStats[0] || {
+        totalTests: 0,
+        avgScore: 0,
+        avgDuration: 0,
+        totalCorrect: 0,
+        totalWords: 0,
+      },
+      scoreTrend,
+    };
+  }
+
+  /**
+   * Group overview analytics
+   */
+  async getGroupAnalytics(groupId) {
+    const group = await Group.findOne({ _id: groupId, isDeleted: false })
+      .populate('teacher', 'firstName lastName')
+      .populate('assistant', 'firstName lastName')
+      .lean();
+
+    if (!group) throw new Error('Group not found');
+
+    const studentCount = group.students.length;
+
+    // Attendance rate for the group (last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const attendanceDocs = await Attendance.find({
+      group: toOid(groupId),
+      date: { $gte: thirtyDaysAgo },
+    }).lean();
+
+    let totalMarks = 0;
+    let presentMarks = 0;
+    attendanceDocs.forEach((doc) => {
+      doc.records.forEach((r) => {
+        totalMarks++;
+        if (r.status === ATTENDANCE_STATUS.PRESENT) presentMarks++;
+      });
+    });
+
+    // Homework completion rate
+    const homeworkCount = await Homework.countDocuments({ group: toOid(groupId), isDeleted: false, isPublished: true });
+    const submissionStats = await Submission.aggregate([
+      { $match: { group: toOid(groupId) } },
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 },
+          avgScore: { $avg: '$score' },
+        },
+      },
+    ]);
+
+    // Top students by score
+    const topStudents = await Submission.aggregate([
+      {
+        $match: {
+          group: toOid(groupId),
+          status: SUBMISSION_STATUS.APPROVED,
+          score: { $ne: null },
+        },
+      },
+      {
+        $group: {
+          _id: '$student',
+          avgScore: { $avg: '$score' },
+          totalSubmissions: { $sum: 1 },
+        },
+      },
+      { $sort: { avgScore: -1 } },
+      { $limit: 5 },
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'studentInfo',
+        },
+      },
+      { $unwind: '$studentInfo' },
+      {
+        $project: {
+          firstName: '$studentInfo.firstName',
+          lastName: '$studentInfo.lastName',
+          avgScore: { $round: ['$avgScore', 1] },
+          totalSubmissions: 1,
+        },
+      },
+    ]);
+
+    return {
+      group: {
+        name: group.name,
+        level: group.level,
+        teacher: group.teacher,
+        assistant: group.assistant,
+        studentCount,
+        maxStudents: group.maxStudents,
+        schedule: group.schedule,
+      },
+      attendance: {
+        sessions: attendanceDocs.length,
+        totalMarks,
+        presentMarks,
+        rate: totalMarks > 0 ? Math.round((presentMarks / totalMarks) * 100) : 0,
+      },
+      homework: {
+        published: homeworkCount,
+        submissionsByStatus: submissionStats,
+      },
+      topStudents,
+    };
+  }
+
+  /**
+   * Center-wide overview (Admin/Manager)
+   */
+  async getCenterOverview() {
+    const [
+      totalStudents,
+      totalTeachers,
+      totalGroups,
+      activeGroups,
+      recentSubmissions,
+    ] = await Promise.all([
+      User.countDocuments({ role: ROLES.STUDENT, isDeleted: false, isActive: true }),
+      User.countDocuments({ role: ROLES.TEACHER, isDeleted: false, isActive: true }),
+      Group.countDocuments({ isDeleted: false }),
+      Group.countDocuments({ isDeleted: false, isActive: true }),
+      Submission.countDocuments({
+        createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+      }),
+    ]);
+
+    // Monthly attendance trend (last 6 months)
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+    const attendanceTrend = await Attendance.aggregate([
+      { $match: { date: { $gte: sixMonthsAgo } } },
+      { $unwind: '$records' },
+      {
+        $group: {
+          _id: {
+            year: { $year: '$date' },
+            month: { $month: '$date' },
+            status: '$records.status',
+          },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1 } },
+    ]);
+
+    return {
+      users: { totalStudents, totalTeachers },
+      groups: { total: totalGroups, active: activeGroups },
+      recentSubmissions,
+      attendanceTrend,
+    };
+  }
+}
+
+module.exports = new AnalyticsService();
+
+
+=========================================
+FILE: src\services\attendance.service.js
+=========================================
+const Attendance = require('../models/Attendance');
+const Group = require('../models/Group');
+const { NotFoundError, AppError, ConflictError } = require('../utils/AppError');
+const { parsePagination } = require('../utils/pagination');
+const { buildPaginationMeta } = require('../utils/response');
+const { audit, ACTIONS } = require('../utils/auditLog');
+
+class AttendanceService {
+  async markAttendance(data, markingUser) {
+    const { group: groupId, date } = data;
+
+    const group = await Group.findOne({ _id: groupId, isDeleted: false }).select('students teacher assistant');
+    if (!group) throw new NotFoundError('Group');
+
+    // Normalize date to start of day
+    const attendanceDate = new Date(date);
+    attendanceDate.setHours(0, 0, 0, 0);
+
+    // Check duplicate
+    const existing = await Attendance.findOne({ group: groupId, date: attendanceDate });
+    if (existing) throw new ConflictError('Attendance already marked for this date');
+
+    // Validate all students are in the group
+    const groupStudentIds = group.students.map((s) => s.toString());
+    for (const record of data.records) {
+      if (!groupStudentIds.includes(record.student.toString())) {
+        throw new AppError(`Student ${record.student} is not in this group`, 400);
+      }
+    }
+
+    const attendance = await Attendance.create({
+      ...data,
+      date: attendanceDate,
+      markedBy: markingUser._id,
+    });
+
+    await audit({
+      userId: markingUser._id,
+      action: ACTIONS.MARK_ATTENDANCE,
+      resource: 'Attendance',
+      resourceId: attendance._id,
+      details: { groupId, date: attendanceDate, count: data.records.length },
+    });
+
+    return attendance;
+  }
+
+  async updateAttendance(id, data, updatingUser) {
+    const attendance = await Attendance.findById(id);
+    if (!attendance) throw new NotFoundError('Attendance');
+
+    Object.assign(attendance, { ...data, updatedBy: updatingUser._id });
+    await attendance.save();
+
+    await audit({
+      userId: updatingUser._id,
+      action: ACTIONS.UPDATE,
+      resource: 'Attendance',
+      resourceId: attendance._id,
+    });
+
+    return attendance;
+  }
+
+  async getAttendance(query) {
+    const { group, student, startDate, endDate, status } = query;
+    const { page, limit, skip } = parsePagination(query);
+
+    const filter = {};
+    if (group) filter.group = group;
+    if (startDate || endDate) {
+      filter.date = {};
+      if (startDate) filter.date.$gte = new Date(startDate);
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        filter.date.$lte = end;
+      }
+    }
+    if (student) filter['records.student'] = student;
+    if (status) filter['records.status'] = status;
+
+    const [records, total] = await Promise.all([
+      Attendance.find(filter)
+        .populate('group', 'name')
+        .populate('markedBy', 'firstName lastName role')
+        .populate('records.student', 'firstName lastName phone')
+        .sort({ date: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Attendance.countDocuments(filter),
+    ]);
+
+    return { records, meta: buildPaginationMeta(total, page, limit) };
+  }
+
+  async getStudentAttendance(studentId, groupId) {
+    const filter = { 'records.student': studentId };
+    if (groupId) filter.group = groupId;
+
+    const records = await Attendance.find(filter)
+      .populate('group', 'name')
+      .sort({ date: -1 })
+      .lean();
+
+    // Extract only this student's records
+    const studentRecords = records.map((r) => ({
+      date: r.date,
+      group: r.group,
+      topic: r.topic,
+      status: r.records.find((rec) => rec.student.toString() === studentId)?.status,
+      note: r.records.find((rec) => rec.student.toString() === studentId)?.note,
+    }));
+
+    // Calculate stats
+    const total = studentRecords.length;
+    const present = studentRecords.filter((r) => r.status === 'PRESENT').length;
+    const absent = studentRecords.filter((r) => r.status === 'ABSENT').length;
+    const late = studentRecords.filter((r) => r.status === 'LATE').length;
+    const attendanceRate = total > 0 ? Math.round((present / total) * 100) : 0;
+
+    return {
+      records: studentRecords,
+      stats: { total, present, absent, late, attendanceRate },
+    };
+  }
+}
+
+module.exports = new AttendanceService();
+
+
+=========================================
+FILE: src\services\auth.service.js
+=========================================
+const User = require('../models/User');
+const { generateTokenPair, verifyRefreshToken } = require('../utils/jwt');
+const {
+  AuthenticationError,
+  ConflictError,
+  NotFoundError,
+  AuthorizationError,
+} = require('../utils/AppError');
+const { audit, ACTIONS } = require('../utils/auditLog');
+
+class AuthService {
+  async register(data, creatorUser = null) {
+    const { phone, email, role } = data;
+
+    // Check phone uniqueness
+    const existing = await User.findOne({ phone, isDeleted: false });
+    if (existing) throw new ConflictError('Phone number already registered');
+
+    if (email) {
+      const emailExists = await User.findOne({ email, isDeleted: false });
+      if (emailExists) throw new ConflictError('Email already registered');
+    }
+
+    const userData = { ...data };
+    if (creatorUser) userData.createdBy = creatorUser._id;
+
+    const user = await User.create(userData);
+    return user.toSafeObject();
+  }
+
+  async login(phone, password, ip, userAgent) {
+    const user = await User.findOne({ phone, isDeleted: false }).select('+password +refreshToken');
+    if (!user) throw new AuthenticationError('Invalid phone or password');
+    if (!user.isActive) throw new AuthenticationError('Account is deactivated');
+
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) throw new AuthenticationError('Invalid phone or password');
+
+    const payload = { userId: user._id, role: user.role };
+    const tokens = generateTokenPair(payload);
+
+    user.refreshToken = tokens.refreshToken;
+    user.lastLoginAt = new Date();
+    await user.save();
+
+    await audit({
+      userId: user._id,
+      action: ACTIONS.LOGIN,
+      resource: 'User',
+      resourceId: user._id,
+      ip,
+      userAgent,
+    });
+
+    return {
+      user: user.toSafeObject(),
+      ...tokens,
+    };
+  }
+
+  async refreshTokens(refreshToken) {
+    const decoded = verifyRefreshToken(refreshToken);
+    const user = await User.findById(decoded.userId).select('+refreshToken');
+
+    if (!user || user.refreshToken !== refreshToken) {
+      throw new AuthenticationError('Invalid refresh token');
+    }
+    if (!user.isActive || user.isDeleted) {
+      throw new AuthenticationError('Account unavailable');
+    }
+
+    const payload = { userId: user._id, role: user.role };
+    const tokens = generateTokenPair(payload);
+
+    user.refreshToken = tokens.refreshToken;
+    await user.save();
+
+    return tokens;
+  }
+
+  async logout(userId) {
+    await User.findByIdAndUpdate(userId, { refreshToken: null });
+    await audit({
+      userId,
+      action: ACTIONS.LOGOUT,
+      resource: 'User',
+      resourceId: userId,
+    });
+  }
+
+  async changePassword(userId, currentPassword, newPassword) {
+    const user = await User.findById(userId).select('+password');
+    if (!user) throw new NotFoundError('User');
+
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) throw new AuthenticationError('Current password is incorrect');
+
+    user.password = newPassword;
+    user.refreshToken = null; // Invalidate sessions
+    await user.save();
+  }
+}
+
+module.exports = new AuthService();
+
+
+=========================================
+FILE: src\services\group.service.js
+=========================================
+const Group = require('../models/Group');
+const User = require('../models/User');
+const { NotFoundError, ConflictError, AppError, AuthorizationError } = require('../utils/AppError');
+const { parsePagination, withActive, parseSort } = require('../utils/pagination');
+const { buildPaginationMeta } = require('../utils/response');
+const { ROLES } = require('../config/constants');
+const { audit, ACTIONS } = require('../utils/auditLog');
+
+class GroupService {
+  async getGroups(query, requestingUser) {
+    const { teacher, level, isActive, search, sort } = query;
+    const { page, limit, skip } = parsePagination(query);
+
+    const filter = withActive({});
+
+    // Teachers/Assistants only see their groups
+    if (requestingUser.role === ROLES.TEACHER) {
+      filter.teacher = requestingUser._id;
+    } else if (requestingUser.role === ROLES.ASSISTANT) {
+      filter.assistant = requestingUser._id;
+    } else if (requestingUser.role === ROLES.STUDENT) {
+      filter.students = requestingUser._id;
+    } else {
+      if (teacher) filter.teacher = teacher;
+    }
+
+    if (level) filter.level = level;
+    if (typeof isActive === 'boolean') filter.isActive = isActive;
+    if (search) filter.$text = { $search: search };
+
+    const sortObj = parseSort(sort);
+
+    const [groups, total] = await Promise.all([
+      Group.find(filter)
+        .populate('teacher', 'firstName lastName phone')
+        .populate('assistant', 'firstName lastName phone')
+        .sort(sortObj)
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Group.countDocuments(filter),
+    ]);
+
+    return { groups, meta: buildPaginationMeta(total, page, limit) };
+  }
+
+  async getGroupById(id) {
+    const group = await Group.findOne({ _id: id, isDeleted: false })
+      .populate('teacher', 'firstName lastName phone role')
+      .populate('assistant', 'firstName lastName phone role')
+      .populate('students', 'firstName lastName phone')
+      .populate('createdBy', 'firstName lastName');
+    if (!group) throw new NotFoundError('Group');
+    return group;
+  }
+
+  async createGroup(data, creatingUser) {
+    // Verify teacher exists and has correct role
+    const teacher = await User.findOne({ _id: data.teacher, role: ROLES.TEACHER, isDeleted: false });
+    if (!teacher) throw new NotFoundError('Teacher');
+
+    if (data.assistant) {
+      const assistant = await User.findOne({
+        _id: data.assistant,
+        role: ROLES.ASSISTANT,
+        isDeleted: false,
+      });
+      if (!assistant) throw new NotFoundError('Assistant');
+    }
+
+    const group = await Group.create({ ...data, createdBy: creatingUser._id });
+
+    await audit({
+      userId: creatingUser._id,
+      action: ACTIONS.CREATE,
+      resource: 'Group',
+      resourceId: group._id,
+      details: { name: group.name },
+    });
+
+    return group;
+  }
+
+  async updateGroup(id, data, updatingUser) {
+    const group = await Group.findOne({ _id: id, isDeleted: false });
+    if (!group) throw new NotFoundError('Group');
+
+    if (data.teacher) {
+      const teacher = await User.findOne({ _id: data.teacher, role: ROLES.TEACHER, isDeleted: false });
+      if (!teacher) throw new NotFoundError('Teacher');
+    }
+
+    if (data.assistant) {
+      const assistant = await User.findOne({
+        _id: data.assistant,
+        role: ROLES.ASSISTANT,
+        isDeleted: false,
+      });
+      if (!assistant) throw new NotFoundError('Assistant');
+    }
+
+    Object.assign(group, data);
+    await group.save();
+
+    await audit({
+      userId: updatingUser._id,
+      action: ACTIONS.UPDATE,
+      resource: 'Group',
+      resourceId: group._id,
+      details: { updated: Object.keys(data) },
+    });
+
+    return group;
+  }
+
+  async addStudent(groupId, studentId, updatingUser) {
+    const group = await Group.findOne({ _id: groupId, isDeleted: false });
+    if (!group) throw new NotFoundError('Group');
+
+    const student = await User.findOne({ _id: studentId, role: ROLES.STUDENT, isDeleted: false });
+    if (!student) throw new NotFoundError('Student');
+
+    if (group.students.some((s) => s.toString() === studentId)) {
+      throw new ConflictError('Student already in this group');
+    }
+
+    if (group.students.length >= group.maxStudents) {
+      throw new AppError('Group is full', 400);
+    }
+
+    group.students.push(studentId);
+    await group.save();
+
+    // Add group ref to student
+    if (!student.groups.includes(groupId)) {
+      student.groups.push(groupId);
+      await student.save();
+    }
+
+    await audit({
+      userId: updatingUser._id,
+      action: ACTIONS.ASSIGN,
+      resource: 'Group',
+      resourceId: group._id,
+      details: { studentId, action: 'add' },
+    });
+
+    return group;
+  }
+
+  async removeStudent(groupId, studentId, updatingUser) {
+    const group = await Group.findOne({ _id: groupId, isDeleted: false });
+    if (!group) throw new NotFoundError('Group');
+
+    group.students = group.students.filter((s) => s.toString() !== studentId);
+    await group.save();
+
+    // Remove group ref from student
+    await User.findByIdAndUpdate(studentId, { $pull: { groups: groupId } });
+
+    await audit({
+      userId: updatingUser._id,
+      action: ACTIONS.ASSIGN,
+      resource: 'Group',
+      resourceId: group._id,
+      details: { studentId, action: 'remove' },
+    });
+  }
+
+  async softDeleteGroup(id, deletingUser) {
+    const group = await Group.findOne({ _id: id, isDeleted: false });
+    if (!group) throw new NotFoundError('Group');
+
+    group.isDeleted = true;
+    group.deletedAt = new Date();
+    group.isActive = false;
+    await group.save();
+
+    await audit({
+      userId: deletingUser._id,
+      action: ACTIONS.DELETE,
+      resource: 'Group',
+      resourceId: group._id,
+    });
+  }
+}
+
+module.exports = new GroupService();
+
+
+=========================================
+FILE: src\services\homework.service.js
+=========================================
+const Homework = require('../models/Homework');
+const Group = require('../models/Group');
+const Submission = require('../models/Submission');
+const { NotFoundError, AppError } = require('../utils/AppError');
+const { parsePagination, parseSort } = require('../utils/pagination');
+const { buildPaginationMeta } = require('../utils/response');
+const { HOMEWORK_TYPES, ROLES } = require('../config/constants');
+const { audit, ACTIONS } = require('../utils/auditLog');
+
+class HomeworkService {
+  async getHomework(query, requestingUser) {
+    const { group, type, isPublished, dueBefore, dueAfter, sort } = query;
+    const { page, limit, skip } = parsePagination(query);
+
+    const filter = { isDeleted: false };
+
+    if (requestingUser.role === ROLES.STUDENT) {
+      // Students only see published homework for their groups
+      filter.isPublished = true;
+      filter.group = { $in: requestingUser.groups };
+    } else {
+      if (group) filter.group = group;
+      if (typeof isPublished === 'boolean') filter.isPublished = isPublished;
+    }
+
+    if (type) filter.type = type;
+    if (dueBefore || dueAfter) {
+      filter.dueDate = {};
+      if (dueAfter) filter.dueDate.$gte = new Date(dueAfter);
+      if (dueBefore) filter.dueDate.$lte = new Date(dueBefore);
+    }
+
+    const sortObj = parseSort(sort, { dueDate: 1 });
+
+    const [homework, total] = await Promise.all([
+      Homework.find(filter)
+        .populate('group', 'name level')
+        .populate('createdBy', 'firstName lastName')
+        .populate('vocabulary', 'title')
+        .sort(sortObj)
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Homework.countDocuments(filter),
+    ]);
+
+    return { homework, meta: buildPaginationMeta(total, page, limit) };
+  }
+
+  async getHomeworkById(id, requestingUser) {
+    const homework = await Homework.findOne({ _id: id, isDeleted: false })
+      .populate('group', 'name level teacher assistant students')
+      .populate('createdBy', 'firstName lastName')
+      .populate({
+        path: 'vocabulary',
+        populate: { path: 'items' },
+      });
+
+    if (!homework) throw new NotFoundError('Homework');
+
+    // Students can only view published homework in their groups
+    if (requestingUser.role === ROLES.STUDENT) {
+      if (!homework.isPublished) throw new NotFoundError('Homework');
+      const inGroup = requestingUser.groups.some(
+        (g) => g.toString() === homework.group._id.toString()
+      );
+      if (!inGroup) throw new NotFoundError('Homework');
+    }
+
+    return homework;
+  }
+
+  async createHomework(data, creatingUser) {
+    const group = await Group.findOne({ _id: data.group, isDeleted: false });
+    if (!group) throw new NotFoundError('Group');
+
+    if (data.type === HOMEWORK_TYPES.URL && !data.resourceUrl) {
+      throw new AppError('Resource URL is required for URL homework', 400);
+    }
+    if (data.type === HOMEWORK_TYPES.TEXT && !data.textContent) {
+      throw new AppError('Text content is required for TEXT homework', 400);
+    }
+    if (data.type === HOMEWORK_TYPES.VOCABULARY && !data.vocabulary) {
+      throw new AppError('Vocabulary list is required for VOCABULARY homework', 400);
+    }
+
+    const homework = await Homework.create({ ...data, createdBy: creatingUser._id });
+
+    await audit({
+      userId: creatingUser._id,
+      action: ACTIONS.CREATE,
+      resource: 'Homework',
+      resourceId: homework._id,
+      details: { type: homework.type, group: homework.group },
+    });
+
+    return homework;
+  }
+
+  async updateHomework(id, data, updatingUser) {
+    const homework = await Homework.findOne({ _id: id, isDeleted: false });
+    if (!homework) throw new NotFoundError('Homework');
+
+    Object.assign(homework, data);
+    await homework.save();
+
+    await audit({
+      userId: updatingUser._id,
+      action: ACTIONS.UPDATE,
+      resource: 'Homework',
+      resourceId: homework._id,
+    });
+
+    return homework;
+  }
+
+  async publishHomework(id, updatingUser) {
+    const homework = await Homework.findOne({ _id: id, isDeleted: false });
+    if (!homework) throw new NotFoundError('Homework');
+
+    homework.isPublished = true;
+    await homework.save();
+
+    await audit({
+      userId: updatingUser._id,
+      action: ACTIONS.UPDATE,
+      resource: 'Homework',
+      resourceId: homework._id,
+      details: { published: true },
+    });
+
+    return homework;
+  }
+
+  async softDeleteHomework(id, deletingUser) {
+    const homework = await Homework.findOne({ _id: id, isDeleted: false });
+    if (!homework) throw new NotFoundError('Homework');
+
+    homework.isDeleted = true;
+    homework.deletedAt = new Date();
+    await homework.save();
+
+    await audit({
+      userId: deletingUser._id,
+      action: ACTIONS.DELETE,
+      resource: 'Homework',
+      resourceId: homework._id,
+    });
+  }
+
+  async getHomeworkStats(groupId) {
+    const [total, published, byType] = await Promise.all([
+      Homework.countDocuments({ group: groupId, isDeleted: false }),
+      Homework.countDocuments({ group: groupId, isDeleted: false, isPublished: true }),
+      Homework.aggregate([
+        { $match: { group: require('mongoose').Types.ObjectId.createFromHexString(groupId), isDeleted: false } },
+        { $group: { _id: '$type', count: { $sum: 1 } } },
+      ]),
+    ]);
+    return { total, published, byType };
+  }
+}
+
+module.exports = new HomeworkService();
+
+
+=========================================
+FILE: src\services\speakingResult.service.js
+=========================================
+const SpeakingResult = require('../models/SpeakingResult');
+const Homework = require('../models/Homework');
+const Group = require('../models/Group');
+const { NotFoundError, AppError, ConflictError } = require('../utils/AppError');
+const { parsePagination, parseSort } = require('../utils/pagination');
+const { buildPaginationMeta } = require('../utils/response');
+const { SPEAKING_TEST_STATUS, ROLES } = require('../config/constants');
+const { audit, ACTIONS } = require('../utils/auditLog');
+
+class SpeakingResultService {
+  /**
+   * Teacher/Assistant approves a student to take the speaking test
+   */
+  async approveStudentForTest(homeworkId, studentId, approver) {
+    const homework = await Homework.findOne({ _id: homeworkId, isDeleted: false })
+      .populate('group');
+    if (!homework) throw new NotFoundError('Homework');
+    if (homework.type !== 'VOCABULARY') throw new AppError('Speaking test only applies to VOCABULARY homework', 400);
+
+    const group = homework.group;
+    const inGroup = group.students.some((s) => s.toString() === studentId);
+    if (!inGroup) throw new AppError('Student is not in this group', 400);
+
+    // Check if already approved/started
+    const existing = await SpeakingResult.findOne({
+      homework: homeworkId,
+      student: studentId,
+      status: { $in: [SPEAKING_TEST_STATUS.PENDING, SPEAKING_TEST_STATUS.IN_PROGRESS] },
+    });
+    if (existing) throw new ConflictError('Student already approved or test is in progress');
+
+    const result = await SpeakingResult.create({
+      student: studentId,
+      homework: homeworkId,
+      group: group._id,
+      vocabulary: homework.vocabulary,
+      approvedBy: approver._id,
+      timeLimitSeconds: homework.timeLimitSeconds || 60,
+      status: SPEAKING_TEST_STATUS.PENDING,
+    });
+
+    await audit({
+      userId: approver._id,
+      action: ACTIONS.APPROVE,
+      resource: 'SpeakingResult',
+      resourceId: result._id,
+      details: { studentId, homeworkId },
+    });
+
+    return result;
+  }
+
+  /**
+   * Student submits speaking test results (processed on mobile — no audio stored)
+   */
+  async submitResult(data, student) {
+    const { homework: homeworkId, vocabulary, wordResults, durationSeconds, startedAt, completedAt } = data;
+
+    // Find the approved pending test
+    const result = await SpeakingResult.findOne({
+      homework: homeworkId,
+      student: student._id,
+      status: { $in: [SPEAKING_TEST_STATUS.PENDING, SPEAKING_TEST_STATUS.IN_PROGRESS] },
+    });
+    if (!result) throw new NotFoundError('No approved speaking test found for this homework');
+
+    const totalWords = wordResults.length;
+    const correctWords = wordResults.filter((w) => w.isCorrect).length;
+    const incorrectWords = totalWords - correctWords;
+    const score = totalWords > 0 ? Math.round((correctWords / totalWords) * 100) : 0;
+    const completedWithinLimit = durationSeconds <= result.timeLimitSeconds;
+
+    result.wordResults = wordResults;
+    result.totalWords = totalWords;
+    result.correctWords = correctWords;
+    result.incorrectWords = incorrectWords;
+    result.score = score;
+    result.durationSeconds = durationSeconds;
+    result.completedWithinLimit = completedWithinLimit;
+    result.startedAt = startedAt || new Date();
+    result.completedAt = completedAt || new Date();
+    result.status = SPEAKING_TEST_STATUS.COMPLETED;
+    // vocabulary field already set on approval
+
+    await result.save();
+
+    await audit({
+      userId: student._id,
+      action: ACTIONS.SUBMIT,
+      resource: 'SpeakingResult',
+      resourceId: result._id,
+      details: { score, totalWords, correctWords, durationSeconds },
+    });
+
+    return result;
+  }
+
+  async getResults(query, requestingUser) {
+    const { group, student, homework, status, sort } = query;
+    const { page, limit, skip } = parsePagination(query);
+
+    const filter = {};
+    if (group) filter.group = group;
+    if (homework) filter.homework = homework;
+    if (status) filter.status = status;
+
+    if (requestingUser.role === ROLES.STUDENT) {
+      filter.student = requestingUser._id;
+    } else if (student) {
+      filter.student = student;
+    }
+
+    const sortObj = parseSort(sort, { createdAt: -1 });
+
+    const [results, total] = await Promise.all([
+      SpeakingResult.find(filter)
+        .populate('student', 'firstName lastName phone')
+        .populate('homework', 'title timeLimitSeconds')
+        .populate('group', 'name')
+        .populate('approvedBy', 'firstName lastName role')
+        .sort(sortObj)
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      SpeakingResult.countDocuments(filter),
+    ]);
+
+    return { results, meta: buildPaginationMeta(total, page, limit) };
+  }
+
+  async getResultById(id, requestingUser) {
+    const result = await SpeakingResult.findById(id)
+      .populate('student', 'firstName lastName phone')
+      .populate('homework', 'title timeLimitSeconds')
+      .populate('vocabulary', 'title items')
+      .populate('group', 'name')
+      .populate('approvedBy', 'firstName lastName role');
+
+    if (!result) throw new NotFoundError('Speaking result');
+
+    if (
+      requestingUser.role === ROLES.STUDENT &&
+      result.student._id.toString() !== requestingUser._id.toString()
+    ) {
+      throw new NotFoundError('Speaking result');
+    }
+
+    return result;
+  }
+
+  async addTeacherNote(id, teacherNote, teacher) {
+    const result = await SpeakingResult.findById(id);
+    if (!result) throw new NotFoundError('Speaking result');
+
+    result.teacherNote = teacherNote;
+    await result.save();
+
+    await audit({
+      userId: teacher._id,
+      action: ACTIONS.UPDATE,
+      resource: 'SpeakingResult',
+      resourceId: result._id,
+      details: { teacherNote },
+    });
+
+    return result;
+  }
+
+  async getStudentProgress(studentId, groupId) {
+    const filter = { student: studentId, status: SPEAKING_TEST_STATUS.COMPLETED };
+    if (groupId) filter.group = groupId;
+
+    const results = await SpeakingResult.find(filter)
+      .populate('homework', 'title dueDate')
+      .sort({ createdAt: 1 })
+      .lean();
+
+    const avgScore =
+      results.length > 0
+        ? Math.round(results.reduce((sum, r) => sum + r.score, 0) / results.length)
+        : 0;
+
+    return { results, avgScore, totalTests: results.length };
+  }
+}
+
+module.exports = new SpeakingResultService();
+
+
+=========================================
+FILE: src\services\submission.service.js
+=========================================
+const Submission = require('../models/Submission');
+const Homework = require('../models/Homework');
+const { NotFoundError, ConflictError, AppError } = require('../utils/AppError');
+const { parsePagination, parseSort } = require('../utils/pagination');
+const { buildPaginationMeta } = require('../utils/response');
+const { SUBMISSION_STATUS, HOMEWORK_TYPES } = require('../config/constants');
+const { audit, ACTIONS } = require('../utils/auditLog');
+
+class SubmissionService {
+  async getSubmissions(query, requestingUser) {
+    const { homework, group, student, status, sort } = query;
+    const { page, limit, skip } = parsePagination(query);
+
+    const filter = {};
+    if (homework) filter.homework = homework;
+    if (group) filter.group = group;
+    if (status) filter.status = status;
+
+    // Students only see their own submissions
+    if (requestingUser.role === 'STUDENT') {
+      filter.student = requestingUser._id;
+    } else if (student) {
+      filter.student = student;
+    }
+
+    const sortObj = parseSort(sort, { createdAt: -1 });
+
+    const [submissions, total] = await Promise.all([
+      Submission.find(filter)
+        .populate('student', 'firstName lastName phone')
+        .populate('homework', 'title type dueDate')
+        .populate('group', 'name')
+        .populate('reviewedBy', 'firstName lastName role')
+        .sort(sortObj)
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Submission.countDocuments(filter),
+    ]);
+
+    return { submissions, meta: buildPaginationMeta(total, page, limit) };
+  }
+
+  async getSubmissionById(id, requestingUser) {
+    const submission = await Submission.findById(id)
+      .populate('student', 'firstName lastName phone')
+      .populate('homework', 'title type dueDate textContent resourceUrl timeLimitSeconds')
+      .populate('group', 'name')
+      .populate('reviewedBy', 'firstName lastName role');
+
+    if (!submission) throw new NotFoundError('Submission');
+
+    if (
+      requestingUser.role === 'STUDENT' &&
+      submission.student._id.toString() !== requestingUser._id.toString()
+    ) {
+      throw new NotFoundError('Submission');
+    }
+
+    return submission;
+  }
+
+  async submitHomework(homeworkId, data, student) {
+    const homework = await Homework.findOne({ _id: homeworkId, isDeleted: false, isPublished: true })
+      .populate('group', 'students');
+
+    if (!homework) throw new NotFoundError('Homework');
+
+    // Verify student is in the group
+    const inGroup = homework.group.students.some((s) => s.toString() === student._id.toString());
+    if (!inGroup) throw new AppError('You are not in this group', 403);
+
+    // Check for existing submission
+    const existing = await Submission.findOne({ homework: homeworkId, student: student._id });
+    if (existing && existing.status !== SUBMISSION_STATUS.PENDING) {
+      throw new ConflictError('Homework already submitted');
+    }
+
+    const isLate = new Date() > new Date(homework.dueDate);
+
+    // Calculate score for vocabulary
+    let score = null;
+    if (homework.type === HOMEWORK_TYPES.VOCABULARY && data.vocabularyAnswers?.length) {
+      const correct = data.vocabularyAnswers.filter((a) => a.isCorrect).length;
+      score = Math.round((correct / data.vocabularyAnswers.length) * 100);
+    }
+
+    const submissionData = {
+      homework: homeworkId,
+      student: student._id,
+      group: homework.group._id,
+      status: SUBMISSION_STATUS.SUBMITTED,
+      submittedAt: new Date(),
+      isLate,
+      score,
+      ...data,
+    };
+
+    let submission;
+    if (existing) {
+      Object.assign(existing, submissionData);
+      submission = await existing.save();
+    } else {
+      submission = await Submission.create(submissionData);
+    }
+
+    await audit({
+      userId: student._id,
+      action: ACTIONS.SUBMIT,
+      resource: 'Submission',
+      resourceId: submission._id,
+      details: { homeworkId, type: homework.type, isLate },
+    });
+
+    return submission;
+  }
+
+  async reviewSubmission(id, data, reviewer) {
+    const submission = await Submission.findById(id);
+    if (!submission) throw new NotFoundError('Submission');
+
+    if (submission.status === SUBMISSION_STATUS.PENDING) {
+      throw new AppError('Cannot review a submission that has not been submitted', 400);
+    }
+
+    submission.status = data.status;
+    submission.feedback = data.feedback || submission.feedback;
+    submission.score = data.score !== undefined ? data.score : submission.score;
+    submission.reviewedBy = reviewer._id;
+    submission.reviewedAt = new Date();
+    await submission.save();
+
+    await audit({
+      userId: reviewer._id,
+      action: data.status === SUBMISSION_STATUS.APPROVED ? ACTIONS.APPROVE : ACTIONS.REJECT,
+      resource: 'Submission',
+      resourceId: submission._id,
+      details: { status: data.status, score: data.score },
+    });
+
+    return submission;
+  }
+
+  async getGroupSubmissionStats(groupId, homeworkId) {
+    const filter = { group: groupId };
+    if (homeworkId) filter.homework = homeworkId;
+
+    const stats = await Submission.aggregate([
+      { $match: { group: require('mongoose').Types.ObjectId.createFromHexString(groupId) } },
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 },
+          avgScore: { $avg: '$score' },
+        },
+      },
+    ]);
+
+    return stats;
+  }
+}
+
+module.exports = new SubmissionService();
+
+
+=========================================
+FILE: src\services\user.service.js
+=========================================
+const User = require('../models/User');
+const { NotFoundError, ConflictError, AuthorizationError } = require('../utils/AppError');
+const { parsePagination, withActive, parseSort } = require('../utils/pagination');
+const { buildPaginationMeta } = require('../utils/response');
+const { ROLE_CREATION_PERMISSIONS } = require('../config/constants');
+const { audit, ACTIONS } = require('../utils/auditLog');
+
+class UserService {
+  async getUsers(query, requestingUser) {
+    const { role, search, isActive, page: qPage, limit: qLimit, sort } = query;
+    const { page, limit, skip } = parsePagination(query);
+
+    const filter = withActive({});
+
+    if (role) filter.role = role;
+    if (typeof isActive === 'boolean') filter.isActive = isActive;
+
+    if (search) {
+      filter.$text = { $search: search };
+    }
+
+    const sortObj = parseSort(sort);
+
+    const [users, total] = await Promise.all([
+      User.find(filter)
+        .select('-password -refreshToken')
+        .sort(sortObj)
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      User.countDocuments(filter),
+    ]);
+
+    return {
+      users,
+      meta: buildPaginationMeta(total, page, limit),
+    };
+  }
+
+  async getUserById(id) {
+    const user = await User.findOne({ _id: id, isDeleted: false })
+      .select('-password -refreshToken')
+      .populate('groups', 'name level');
+    if (!user) throw new NotFoundError('User');
+    return user;
+  }
+
+  async createUser(data, creatorUser) {
+    const allowedRoles = ROLE_CREATION_PERMISSIONS[creatorUser.role] || [];
+    if (!allowedRoles.includes(data.role)) {
+      throw new AuthorizationError(
+        `You cannot create a user with role '${data.role}'`
+      );
+    }
+
+    const existing = await User.findOne({ phone: data.phone, isDeleted: false });
+    if (existing) throw new ConflictError('Phone number already registered');
+
+    if (data.email) {
+      const emailExists = await User.findOne({ email: data.email, isDeleted: false });
+      if (emailExists) throw new ConflictError('Email already registered');
+    }
+
+    const user = await User.create({ ...data, createdBy: creatorUser._id });
+
+    await audit({
+      userId: creatorUser._id,
+      action: ACTIONS.CREATE,
+      resource: 'User',
+      resourceId: user._id,
+      details: { role: user.role, phone: user.phone },
+    });
+
+    return user.toSafeObject();
+  }
+
+  async updateUser(id, data, updatingUser) {
+    const user = await User.findOne({ _id: id, isDeleted: false });
+    if (!user) throw new NotFoundError('User');
+
+    Object.assign(user, data);
+    await user.save();
+
+    await audit({
+      userId: updatingUser._id,
+      action: ACTIONS.UPDATE,
+      resource: 'User',
+      resourceId: user._id,
+      details: { updated: Object.keys(data) },
+    });
+
+    return user.toSafeObject();
+  }
+
+  async updateProfile(userId, data) {
+    const user = await User.findById(userId);
+    if (!user) throw new NotFoundError('User');
+    Object.assign(user, data);
+    await user.save();
+    return user.toSafeObject();
+  }
+
+  async softDeleteUser(id, deletingUser) {
+    const user = await User.findOne({ _id: id, isDeleted: false });
+    if (!user) throw new NotFoundError('User');
+
+    user.isDeleted = true;
+    user.deletedAt = new Date();
+    user.isActive = false;
+    user.refreshToken = null;
+    await user.save();
+
+    await audit({
+      userId: deletingUser._id,
+      action: ACTIONS.DELETE,
+      resource: 'User',
+      resourceId: user._id,
+    });
+  }
+
+  async toggleUserStatus(id, updatingUser) {
+    const user = await User.findOne({ _id: id, isDeleted: false });
+    if (!user) throw new NotFoundError('User');
+
+    user.isActive = !user.isActive;
+    await user.save();
+
+    await audit({
+      userId: updatingUser._id,
+      action: ACTIONS.UPDATE,
+      resource: 'User',
+      resourceId: user._id,
+      details: { isActive: user.isActive },
+    });
+
+    return { isActive: user.isActive };
+  }
+}
+
+module.exports = new UserService();
+
+
+=========================================
+FILE: src\services\vocabulary.service.js
+=========================================
+const Vocabulary = require('../models/Vocabulary');
+const Group = require('../models/Group');
+const { NotFoundError, AppError } = require('../utils/AppError');
+const { parsePagination } = require('../utils/pagination');
+const { buildPaginationMeta } = require('../utils/response');
+const { audit, ACTIONS } = require('../utils/auditLog');
+
+class VocabularyService {
+  async getVocabularies(query, requestingUser) {
+    const { group } = query;
+    const { page, limit, skip } = parsePagination(query);
+
+    const filter = { isDeleted: false };
+    if (group) filter.group = group;
+
+    const [vocabularies, total] = await Promise.all([
+      Vocabulary.find(filter)
+        .populate('group', 'name')
+        .populate('createdBy', 'firstName lastName')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Vocabulary.countDocuments(filter),
+    ]);
+
+    return { vocabularies, meta: buildPaginationMeta(total, page, limit) };
+  }
+
+  async getVocabularyById(id) {
+    const vocab = await Vocabulary.findOne({ _id: id, isDeleted: false })
+      .populate('group', 'name')
+      .populate('createdBy', 'firstName lastName');
+    if (!vocab) throw new NotFoundError('Vocabulary');
+    return vocab;
+  }
+
+  async createVocabulary(data, creatingUser) {
+    const group = await Group.findOne({ _id: data.group, isDeleted: false });
+    if (!group) throw new NotFoundError('Group');
+
+    const vocab = await Vocabulary.create({ ...data, createdBy: creatingUser._id });
+
+    await audit({
+      userId: creatingUser._id,
+      action: ACTIONS.CREATE,
+      resource: 'Vocabulary',
+      resourceId: vocab._id,
+      details: { title: vocab.title, itemCount: vocab.items.length },
+    });
+
+    return vocab;
+  }
+
+  async updateVocabulary(id, data, updatingUser) {
+    const vocab = await Vocabulary.findOne({ _id: id, isDeleted: false });
+    if (!vocab) throw new NotFoundError('Vocabulary');
+
+    Object.assign(vocab, data);
+    await vocab.save();
+
+    await audit({
+      userId: updatingUser._id,
+      action: ACTIONS.UPDATE,
+      resource: 'Vocabulary',
+      resourceId: vocab._id,
+    });
+
+    return vocab;
+  }
+
+  async updateItemTranslation(vocabId, itemId, editedTranslation, updatingUser) {
+    const vocab = await Vocabulary.findOne({ _id: vocabId, isDeleted: false });
+    if (!vocab) throw new NotFoundError('Vocabulary');
+
+    const item = vocab.items.id(itemId);
+    if (!item) throw new NotFoundError('Vocabulary item');
+
+    item.editedTranslation = editedTranslation;
+    await vocab.save();
+
+    await audit({
+      userId: updatingUser._id,
+      action: ACTIONS.UPDATE,
+      resource: 'Vocabulary',
+      resourceId: vocab._id,
+      details: { itemId, editedTranslation },
+    });
+
+    return vocab;
+  }
+
+  async softDeleteVocabulary(id, deletingUser) {
+    const vocab = await Vocabulary.findOne({ _id: id, isDeleted: false });
+    if (!vocab) throw new NotFoundError('Vocabulary');
+
+    vocab.isDeleted = true;
+    await vocab.save();
+
+    await audit({
+      userId: deletingUser._id,
+      action: ACTIONS.DELETE,
+      resource: 'Vocabulary',
+      resourceId: vocab._id,
+    });
+  }
+}
+
+module.exports = new VocabularyService();
+
+
+=========================================
+FILE: src\utils\AppError.js
+=========================================
+class AppError extends Error {
+  constructor(message, statusCode, errors = null) {
+    super(message);
+    this.statusCode = statusCode;
+    this.status = `${statusCode}`.startsWith('4') ? 'fail' : 'error';
+    this.isOperational = true;
+    this.errors = errors;
+
+    Error.captureStackTrace(this, this.constructor);
+  }
+}
+
+class ValidationError extends AppError {
+  constructor(errors) {
+    super('Validation error', 422, errors);
+  }
+}
+
+class AuthenticationError extends AppError {
+  constructor(message = 'Authentication failed') {
+    super(message, 401);
+  }
+}
+
+class AuthorizationError extends AppError {
+  constructor(message = 'Access denied') {
+    super(message, 403);
+  }
+}
+
+class NotFoundError extends AppError {
+  constructor(resource = 'Resource') {
+    super(`${resource} not found`, 404);
+  }
+}
+
+class ConflictError extends AppError {
+  constructor(message) {
+    super(message, 409);
+  }
+}
+
+module.exports = {
+  AppError,
+  ValidationError,
+  AuthenticationError,
+  AuthorizationError,
+  NotFoundError,
+  ConflictError,
+};
+
+
+=========================================
+FILE: src\utils\auditLog.js
+=========================================
+const AuditLog = require('../models/AuditLog');
+const logger = require('./logger');
+
+/**
+ * Record an audit log entry
+ */
+const audit = async ({ userId, action, resource, resourceId, details = {}, ip, userAgent }) => {
+  try {
+    await AuditLog.create({
+      user: userId,
+      action,
+      resource,
+      resourceId,
+      details,
+      ip,
+      userAgent,
+    });
+  } catch (err) {
+    logger.error(`Audit log failed: ${err.message}`);
+  }
+};
+
+const ACTIONS = {
+  CREATE: 'CREATE',
+  UPDATE: 'UPDATE',
+  DELETE: 'DELETE',
+  LOGIN: 'LOGIN',
+  LOGOUT: 'LOGOUT',
+  APPROVE: 'APPROVE',
+  REJECT: 'REJECT',
+  ASSIGN: 'ASSIGN',
+  MARK_ATTENDANCE: 'MARK_ATTENDANCE',
+  SUBMIT: 'SUBMIT',
+};
+
+module.exports = { audit, ACTIONS };
+
+
+=========================================
+FILE: src\utils\jwt.js
+=========================================
+const jwt = require('jsonwebtoken');
+const { AuthenticationError } = require('./AppError');
+
+const generateAccessToken = (payload) => {
+  return jwt.sign(payload, process.env.JWT_ACCESS_SECRET, {
+    expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m',
+  });
+};
+
+const generateRefreshToken = (payload) => {
+  return jwt.sign(payload, process.env.JWT_REFRESH_SECRET, {
+    expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
+  });
+};
+
+const verifyAccessToken = (token) => {
+  try {
+    return jwt.verify(token, process.env.JWT_ACCESS_SECRET);
+  } catch (err) {
+    if (err.name === 'TokenExpiredError') {
+      throw new AuthenticationError('Access token expired');
+    }
+    throw new AuthenticationError('Invalid access token');
+  }
+};
+
+const verifyRefreshToken = (token) => {
+  try {
+    return jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+  } catch (err) {
+    if (err.name === 'TokenExpiredError') {
+      throw new AuthenticationError('Refresh token expired');
+    }
+    throw new AuthenticationError('Invalid refresh token');
+  }
+};
+
+const generateTokenPair = (payload) => ({
+  accessToken: generateAccessToken(payload),
+  refreshToken: generateRefreshToken(payload),
+});
+
+module.exports = {
+  generateAccessToken,
+  generateRefreshToken,
+  verifyAccessToken,
+  verifyRefreshToken,
+  generateTokenPair,
+};
+
+
+=========================================
+FILE: src\utils\logger.js
+=========================================
+const winston = require('winston');
+const DailyRotateFile = require('winston-daily-rotate-file');
+const path = require('path');
+
+const { combine, timestamp, printf, colorize, errors, json } = winston.format;
+
+const logFormat = printf(({ level, message, timestamp, stack, ...meta }) => {
+  let log = `${timestamp} [${level}]: ${stack || message}`;
+  if (Object.keys(meta).length) {
+    log += ` ${JSON.stringify(meta)}`;
+  }
+  return log;
+});
+
+const transports = [
+  new winston.transports.Console({
+    format: combine(
+      colorize(),
+      timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+      errors({ stack: true }),
+      logFormat
+    ),
+  }),
+];
+
+if (process.env.NODE_ENV === 'production') {
+  transports.push(
+    new DailyRotateFile({
+      filename: path.join('logs', 'error-%DATE%.log'),
+      datePattern: 'YYYY-MM-DD',
+      level: 'error',
+      maxFiles: '30d',
+      format: combine(timestamp(), errors({ stack: true }), json()),
+    }),
+    new DailyRotateFile({
+      filename: path.join('logs', 'combined-%DATE%.log'),
+      datePattern: 'YYYY-MM-DD',
+      maxFiles: '14d',
+      format: combine(timestamp(), json()),
+    })
+  );
+}
+
+const logger = winston.createLogger({
+  level: process.env.LOG_LEVEL || 'info',
+  transports,
+  exitOnError: false,
+});
+
+module.exports = logger;
+
+
+=========================================
+FILE: src\utils\pagination.js
+=========================================
+const { PAGINATION } = require('../config/constants');
+
+/**
+ * Parse pagination params from query
+ */
+const parsePagination = (query) => {
+  const page = Math.max(1, parseInt(query.page) || PAGINATION.DEFAULT_PAGE);
+  const limit = Math.min(
+    PAGINATION.MAX_LIMIT,
+    Math.max(1, parseInt(query.limit) || PAGINATION.DEFAULT_LIMIT)
+  );
+  const skip = (page - 1) * limit;
+  return { page, limit, skip };
+};
+
+/**
+ * Apply soft delete filter
+ */
+const withActive = (filter = {}) => ({ ...filter, isDeleted: false });
+
+/**
+ * Build sort object from query
+ */
+const parseSort = (sortQuery, defaultSort = { createdAt: -1 }) => {
+  if (!sortQuery) return defaultSort;
+  const [field, order] = sortQuery.split(':');
+  return { [field]: order === 'asc' ? 1 : -1 };
+};
+
+module.exports = { parsePagination, withActive, parseSort };
+
+
+=========================================
+FILE: src\utils\response.js
+=========================================
+/**
+ * Send a success response
+ */
+const sendSuccess = (res, { data = null, message = 'Success', statusCode = 200, meta = null } = {}) => {
+  const response = {
+    success: true,
+    message,
+  };
+
+  if (data !== null) response.data = data;
+  if (meta !== null) response.meta = meta;
+
+  return res.status(statusCode).json(response);
+};
+
+/**
+ * Send an error response
+ */
+const sendError = (res, { message = 'Error', statusCode = 500, errors = null } = {}) => {
+  const response = {
+    success: false,
+    message,
+  };
+
+  if (errors !== null) response.errors = errors;
+
+  return res.status(statusCode).json(response);
+};
+
+/**
+ * Build pagination meta
+ */
+const buildPaginationMeta = (total, page, limit) => ({
+  total,
+  page: Number(page),
+  limit: Number(limit),
+  totalPages: Math.ceil(total / limit),
+  hasNextPage: page * limit < total,
+  hasPrevPage: page > 1,
+});
+
+module.exports = { sendSuccess, sendError, buildPaginationMeta };
+
+
+=========================================
+FILE: src\utils\seeder.js
+=========================================
+// require('dotenv').config();
+// const mongoose = require('mongoose');
+// // const User = require('../src/models/User');
+// const Group = require('../src/models/Group');
+// const Vocabulary = require('../src/models/Vocabulary');
+// const logger = require('../src/utils/logger');
+// const User = require('../models/User');
+
+require('dotenv').config();
+const mongoose = require('mongoose');
+
+// XATOLAR TUZATILGAN QISMI:
+const User = require('../models/User');        // To'g'ri
+const Group = require('../models/Group');      // To'g'ri (../src/models edi)
+const Vocabulary = require('../models/Vocabulary'); // To'g'ri (../src/models edi)
+const logger = require('./logger');
+
+const seed = async () => {
+  try {
+    await mongoose.connect(process.env.MONGODB_URI);
+    logger.info('Connected to MongoDB for seeding...');
+
+    // Clean existing seed data
+    await User.deleteMany({ phone: { $in: ['+998901000001', '+998901000002', '+998901000003', '+998901000004', '+998901000005'] } });
+    await Group.deleteMany({ name: 'Demo Group A1' });
+
+    // ── Create Admin ──────────────────────────────────────────────────────────
+    const admin = await User.create({
+      firstName: 'Super',
+      lastName: 'Admin',
+      phone: '+998901000001',
+      email: 'admin@englishcenter.uz',
+      password: 'Admin@12345',
+      role: 'ADMIN',
+    });
+
+    // ── Create Manager ────────────────────────────────────────────────────────
+    const manager = await User.create({
+      firstName: 'Aziz',
+      lastName: 'Karimov',
+      phone: '+998901000002',
+      email: 'manager@englishcenter.uz',
+      password: 'Manager@123',
+      role: 'MANAGER',
+      createdBy: admin._id,
+    });
+
+    // ── Create Teacher ────────────────────────────────────────────────────────
+    const teacher = await User.create({
+      firstName: 'Dilnoza',
+      lastName: 'Yusupova',
+      phone: '+998901000003',
+      email: 'teacher@englishcenter.uz',
+      password: 'Teacher@123',
+      role: 'TEACHER',
+      createdBy: admin._id,
+    });
+
+    // ── Create Assistant ──────────────────────────────────────────────────────
+    const assistant = await User.create({
+      firstName: 'Bobur',
+      lastName: 'Toshmatov',
+      phone: '+998901000004',
+      email: 'assistant@englishcenter.uz',
+      password: 'Assistant@123',
+      role: 'ASSISTANT',
+      createdBy: teacher._id,
+    });
+
+    // ── Create Student ────────────────────────────────────────────────────────
+    const student = await User.create({
+      firstName: 'Kamola',
+      lastName: 'Rahimova',
+      phone: '+998901000005',
+      email: 'student@englishcenter.uz',
+      password: 'Student@123',
+      role: 'STUDENT',
+      createdBy: teacher._id,
+    });
+
+    // ── Create Group ──────────────────────────────────────────────────────────
+    const group = await Group.create({
+      name: 'Demo Group A1',
+      description: 'Beginner English group for demo purposes',
+      teacher: teacher._id,
+      assistant: assistant._id,
+      students: [student._id],
+      level: 'BEGINNER',
+      startDate: new Date(),
+      endDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
+      schedule: {
+        days: ['MONDAY', 'WEDNESDAY', 'FRIDAY'],
+        startTime: '09:00',
+        endTime: '10:30',
+        room: 'Room 101',
+      },
+      createdBy: admin._id,
+      maxStudents: 15,
+    });
+
+    // Update student's groups
+    student.groups = [group._id];
+    await student.save();
+
+    // ── Create Vocabulary ─────────────────────────────────────────────────────
+    const vocab = await Vocabulary.create({
+      title: 'Unit 1 - Greetings',
+      group: group._id,
+      createdBy: teacher._id,
+      items: [
+        { word: 'Hello', language: 'EN', translation: 'Salom', autoTranslation: 'Salom' },
+        { word: 'Goodbye', language: 'EN', translation: "Xayr", autoTranslation: "Xayr" },
+        { word: 'Thank you', language: 'EN', translation: 'Rahmat', autoTranslation: 'Rahmat' },
+        { word: 'Please', language: 'EN', translation: 'Iltimos', autoTranslation: 'Iltimos' },
+        { word: 'Sorry', language: 'EN', translation: 'Kechirasiz', autoTranslation: 'Kechirasiz' },
+      ],
+    });
+
+    logger.info('✅ Seed completed successfully!\n');
+    logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    logger.info('👤 ADMIN     | +998901000001 | Admin@12345');
+    logger.info('👤 MANAGER   | +998901000002 | Manager@123');
+    logger.info('👤 TEACHER   | +998901000003 | Teacher@123');
+    logger.info('👤 ASSISTANT | +998901000004 | Assistant@123');
+    logger.info('👤 STUDENT   | +998901000005 | Student@123');
+    logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    logger.info(`🏫 Group: "${group.name}" (ID: ${group._id})`);
+    logger.info(`📚 Vocabulary: "${vocab.title}" (ID: ${vocab._id})`);
+
+    process.exit(0);
+  } catch (err) {
+    logger.error('Seeding failed:', err);
+    process.exit(1);
+  }
+};
+
+seed();
+
+
+=========================================
+FILE: src\validators\attendance.validator.js
+=========================================
+const Joi = require('joi');
+const { ATTENDANCE_STATUS } = require('../config/constants');
+
+const recordSchema = Joi.object({
+  student: Joi.string().hex().length(24).required(),
+  status: Joi.string()
+    .valid(...Object.values(ATTENDANCE_STATUS))
+    .required(),
+  note: Joi.string().trim().max(200).optional().allow('', null),
+});
+
+const markAttendanceSchema = Joi.object({
+  group: Joi.string().hex().length(24).required(),
+  date: Joi.date().required(),
+  records: Joi.array().items(recordSchema).min(1).required(),
+  topic: Joi.string().trim().max(200).optional().allow('', null),
+  notes: Joi.string().trim().max(500).optional().allow('', null),
+});
+
+const updateAttendanceSchema = Joi.object({
+  records: Joi.array().items(recordSchema).min(1),
+  topic: Joi.string().trim().max(200).allow('', null),
+  notes: Joi.string().trim().max(500).allow('', null),
+}).min(1);
+
+const attendanceQuerySchema = Joi.object({
+  group: Joi.string().hex().length(24),
+  student: Joi.string().hex().length(24),
+  startDate: Joi.date(),
+  endDate: Joi.date(),
+  status: Joi.string().valid(...Object.values(ATTENDANCE_STATUS)),
+  page: Joi.number().integer().min(1),
+  limit: Joi.number().integer().min(1).max(100),
+});
+
+module.exports = {
+  markAttendanceSchema,
+  updateAttendanceSchema,
+  attendanceQuerySchema,
+};
+
+
+=========================================
+FILE: src\validators\auth.validator.js
+=========================================
+const Joi = require('joi');
+const { ROLES } = require('../config/constants');
+
+const registerSchema = Joi.object({
+  firstName: Joi.string().trim().min(2).max(50).required(),
+  lastName: Joi.string().trim().min(2).max(50).required(),
+  phone: Joi.string()
+    .trim()
+    .pattern(/^\+?[\d\s\-()\u{0660}-\u{0669}]{7,20}$/u)
+    .required(),
+  email: Joi.string().trim().email().optional().allow('', null),
+  password: Joi.string().min(6).max(100).required(),
+  role: Joi.string()
+    .valid(...Object.values(ROLES))
+    .required(),
+});
+
+const loginSchema = Joi.object({
+  phone: Joi.string().trim().required(),
+  password: Joi.string().required(),
+});
+
+const refreshTokenSchema = Joi.object({
+  refreshToken: Joi.string().required(),
+});
+
+const changePasswordSchema = Joi.object({
+  currentPassword: Joi.string().required(),
+  newPassword: Joi.string().min(6).max(100).required(),
+  confirmPassword: Joi.any()
+    .valid(Joi.ref('newPassword'))
+    .required()
+    .messages({ 'any.only': 'Passwords do not match' }),
+});
+
+module.exports = {
+  registerSchema,
+  loginSchema,
+  refreshTokenSchema,
+  changePasswordSchema,
+};
+
+
+=========================================
+FILE: src\validators\group.validator.js
+=========================================
+const Joi = require('joi');
+const { DAYS_OF_WEEK } = require('../config/constants');
+
+const timePattern = /^([01]\d|2[0-3]):([0-5]\d)$/;
+
+const scheduleSchema = Joi.object({
+  days: Joi.array()
+    .items(Joi.string().valid(...DAYS_OF_WEEK))
+    .min(1)
+    .required(),
+  startTime: Joi.string().pattern(timePattern).required(),
+  endTime: Joi.string().pattern(timePattern).required(),
+  room: Joi.string().trim().max(50).optional(),
+});
+
+const createGroupSchema = Joi.object({
+  name: Joi.string().trim().min(2).max(100).required(),
+  description: Joi.string().trim().max(500).optional().allow('', null),
+  teacher: Joi.string().hex().length(24).required(),
+  assistant: Joi.string().hex().length(24).optional().allow(null),
+  schedule: scheduleSchema.required(),
+  level: Joi.string()
+    .valid('BEGINNER', 'ELEMENTARY', 'PRE_INTERMEDIATE', 'INTERMEDIATE', 'UPPER_INTERMEDIATE', 'ADVANCED')
+    .optional(),
+  startDate: Joi.date().required(),
+  endDate: Joi.date().min(Joi.ref('startDate')).optional(),
+  maxStudents: Joi.number().integer().min(1).max(50).optional(),
+});
+
+const updateGroupSchema = Joi.object({
+  name: Joi.string().trim().min(2).max(100),
+  description: Joi.string().trim().max(500).allow('', null),
+  teacher: Joi.string().hex().length(24),
+  assistant: Joi.string().hex().length(24).allow(null),
+  schedule: scheduleSchema,
+  level: Joi.string().valid(
+    'BEGINNER', 'ELEMENTARY', 'PRE_INTERMEDIATE',
+    'INTERMEDIATE', 'UPPER_INTERMEDIATE', 'ADVANCED'
+  ),
+  startDate: Joi.date(),
+  endDate: Joi.date(),
+  maxStudents: Joi.number().integer().min(1).max(50),
+  isActive: Joi.boolean(),
+}).min(1);
+
+const addStudentSchema = Joi.object({
+  studentId: Joi.string().hex().length(24).required(),
+});
+
+const groupQuerySchema = Joi.object({
+  teacher: Joi.string().hex().length(24),
+  level: Joi.string(),
+  isActive: Joi.boolean(),
+  search: Joi.string().trim().max(100),
+  page: Joi.number().integer().min(1),
+  limit: Joi.number().integer().min(1).max(100),
+  sort: Joi.string(),
+});
+
+module.exports = {
+  createGroupSchema,
+  updateGroupSchema,
+  addStudentSchema,
+  groupQuerySchema,
+};
+
+
+=========================================
+FILE: src\validators\homework.validator.js
+=========================================
+const Joi = require('joi');
+const { HOMEWORK_TYPES } = require('../config/constants');
+
+const createHomeworkSchema = Joi.object({
+  title: Joi.string().trim().min(2).max(200).required(),
+  description: Joi.string().trim().max(1000).optional().allow('', null),
+  type: Joi.string()
+    .valid(...Object.values(HOMEWORK_TYPES))
+    .required(),
+  group: Joi.string().hex().length(24).required(),
+  dueDate: Joi.date().min('now').required(),
+  isPublished: Joi.boolean().optional(),
+
+  // URL type
+  resourceUrl: Joi.when('type', {
+    is: HOMEWORK_TYPES.URL,
+    then: Joi.string().uri().required(),
+    otherwise: Joi.string().uri().optional().allow('', null),
+  }),
+  urlDescription: Joi.string().trim().max(500).optional().allow('', null),
+
+  // TEXT type
+  textContent: Joi.when('type', {
+    is: HOMEWORK_TYPES.TEXT,
+    then: Joi.string().trim().min(1).max(5000).required(),
+    otherwise: Joi.string().trim().max(5000).optional().allow('', null),
+  }),
+
+  // VOCABULARY type
+  vocabulary: Joi.when('type', {
+    is: HOMEWORK_TYPES.VOCABULARY,
+    then: Joi.string().hex().length(24).required(),
+    otherwise: Joi.string().hex().length(24).optional().allow(null),
+  }),
+  timeLimitSeconds: Joi.number().integer().min(10).max(600).optional(),
+});
+
+const updateHomeworkSchema = Joi.object({
+  title: Joi.string().trim().min(2).max(200),
+  description: Joi.string().trim().max(1000).allow('', null),
+  dueDate: Joi.date(),
+  isPublished: Joi.boolean(),
+  resourceUrl: Joi.string().uri().allow('', null),
+  urlDescription: Joi.string().trim().max(500).allow('', null),
+  textContent: Joi.string().trim().max(5000).allow('', null),
+  timeLimitSeconds: Joi.number().integer().min(10).max(600),
+}).min(1);
+
+const homeworkQuerySchema = Joi.object({
+  group: Joi.string().hex().length(24),
+  type: Joi.string().valid(...Object.values(HOMEWORK_TYPES)),
+  isPublished: Joi.boolean(),
+  dueBefore: Joi.date(),
+  dueAfter: Joi.date(),
+  page: Joi.number().integer().min(1),
+  limit: Joi.number().integer().min(1).max(100),
+  sort: Joi.string(),
+});
+
+module.exports = {
+  createHomeworkSchema,
+  updateHomeworkSchema,
+  homeworkQuerySchema,
+};
+
+
+=========================================
+FILE: src\validators\speakingResult.validator.js
+=========================================
+const Joi = require('joi');
+const { SPEAKING_TEST_STATUS } = require('../config/constants');
+
+const wordResultSchema = Joi.object({
+  vocabularyItemId: Joi.string().hex().length(24).required(),
+  word: Joi.string().required(),
+  isCorrect: Joi.boolean().required(),
+  timeTakenSeconds: Joi.number().min(0).optional(),
+  aiConfidence: Joi.number().min(0).max(1).optional().allow(null),
+});
+
+const submitSpeakingResultSchema = Joi.object({
+  homework: Joi.string().hex().length(24).required(),
+  vocabulary: Joi.string().hex().length(24).required(),
+  wordResults: Joi.array().items(wordResultSchema).min(1).required(),
+  durationSeconds: Joi.number().min(0).required(),
+  startedAt: Joi.date().optional(),
+  completedAt: Joi.date().optional(),
+});
+
+const approveSpeakingSchema = Joi.object({
+  homework: Joi.string().hex().length(24).required(),
+  student: Joi.string().hex().length(24).required(),
+});
+
+const teacherNoteSchema = Joi.object({
+  teacherNote: Joi.string().trim().max(500).required(),
+});
+
+module.exports = {
+  submitSpeakingResultSchema,
+  approveSpeakingSchema,
+  teacherNoteSchema,
+};
+
+
+=========================================
+FILE: src\validators\submission.validator.js
+=========================================
+const Joi = require('joi');
+const { SUBMISSION_STATUS } = require('../config/constants');
+
+const wordResultSchema = Joi.object({
+  vocabularyItemId: Joi.string().hex().length(24).required(),
+  word: Joi.string().required(),
+  isCorrect: Joi.boolean().required(),
+  timeTakenSeconds: Joi.number().min(0).optional(),
+});
+
+const submitHomeworkSchema = Joi.object({
+  textAnswer: Joi.string().trim().max(10000).optional().allow('', null),
+  urlNote: Joi.string().trim().max(1000).optional().allow('', null),
+  vocabularyAnswers: Joi.array().items(
+    Joi.object({
+      vocabularyItemId: Joi.string().hex().length(24).required(),
+      word: Joi.string().required(),
+      isCorrect: Joi.boolean().required(),
+      studentAnswer: Joi.string().optional().allow('', null),
+      timeTakenSeconds: Joi.number().min(0).optional(),
+    })
+  ).optional(),
+});
+
+const reviewSubmissionSchema = Joi.object({
+  status: Joi.string()
+    .valid(SUBMISSION_STATUS.APPROVED, SUBMISSION_STATUS.REJECTED, SUBMISSION_STATUS.REVIEWED)
+    .required(),
+  feedback: Joi.string().trim().max(1000).optional().allow('', null),
+  score: Joi.number().min(0).max(100).optional(),
+});
+
+const submissionQuerySchema = Joi.object({
+  homework: Joi.string().hex().length(24),
+  group: Joi.string().hex().length(24),
+  student: Joi.string().hex().length(24),
+  status: Joi.string().valid(...Object.values(SUBMISSION_STATUS)),
+  page: Joi.number().integer().min(1),
+  limit: Joi.number().integer().min(1).max(100),
+  sort: Joi.string(),
+});
+
+module.exports = {
+  submitHomeworkSchema,
+  reviewSubmissionSchema,
+  submissionQuerySchema,
+};
+
+
+=========================================
+FILE: src\validators\user.validator.js
+=========================================
+const Joi = require('joi');
+const { ROLES } = require('../config/constants');
+
+const createUserSchema = Joi.object({
+  firstName: Joi.string().trim().min(2).max(50).required(),
+  lastName: Joi.string().trim().min(2).max(50).required(),
+  phone: Joi.string()
+    .trim()
+    .pattern(/^\+?[\d\s\-()\u{0660}-\u{0669}]{7,20}$/u)
+    .required(),
+  email: Joi.string().trim().email().optional().allow('', null),
+  password: Joi.string().min(6).max(100).required(),
+  role: Joi.string()
+    .valid(...Object.values(ROLES))
+    .required(),
+});
+
+const updateUserSchema = Joi.object({
+  firstName: Joi.string().trim().min(2).max(50),
+  lastName: Joi.string().trim().min(2).max(50),
+  email: Joi.string().trim().email().allow('', null),
+  avatar: Joi.string().uri().allow('', null),
+  isActive: Joi.boolean(),
+}).min(1);
+
+const updateProfileSchema = Joi.object({
+  firstName: Joi.string().trim().min(2).max(50),
+  lastName: Joi.string().trim().min(2).max(50),
+  email: Joi.string().trim().email().allow('', null),
+  avatar: Joi.string().uri().allow('', null),
+}).min(1);
+
+const userQuerySchema = Joi.object({
+  role: Joi.string().valid(...Object.values(ROLES)),
+  search: Joi.string().trim().max(100),
+  isActive: Joi.boolean(),
+  page: Joi.number().integer().min(1),
+  limit: Joi.number().integer().min(1).max(100),
+  sort: Joi.string(),
+});
+
+module.exports = {
+  createUserSchema,
+  updateUserSchema,
+  updateProfileSchema,
+  userQuerySchema,
+};
+
+
+=========================================
+FILE: src\validators\vocabulary.validator.js
+=========================================
+const Joi = require('joi');
+
+const vocabularyItemSchema = Joi.object({
+  word: Joi.string().trim().min(1).max(100).required(),
+  language: Joi.string().valid('EN', 'UZ').required(),
+  translation: Joi.string().trim().max(200).optional().allow('', null),
+  autoTranslation: Joi.string().trim().max(200).optional().allow('', null),
+  editedTranslation: Joi.string().trim().max(200).optional().allow('', null),
+  pronunciation: Joi.string().trim().optional().allow('', null),
+  example: Joi.string().trim().max(300).optional().allow('', null),
+  imageUrl: Joi.string().uri().optional().allow('', null),
+});
+
+const createVocabularySchema = Joi.object({
+  title: Joi.string().trim().min(2).max(200).required(),
+  group: Joi.string().hex().length(24).required(),
+  items: Joi.array().items(vocabularyItemSchema).min(1).required(),
+});
+
+const updateVocabularySchema = Joi.object({
+  title: Joi.string().trim().min(2).max(200),
+  items: Joi.array().items(vocabularyItemSchema).min(1),
+}).min(1);
+
+const updateTranslationSchema = Joi.object({
+  itemId: Joi.string().hex().length(24).required(),
+  editedTranslation: Joi.string().trim().max(200).required(),
+});
+
+module.exports = {
+  createVocabularySchema,
+  updateVocabularySchema,
+  updateTranslationSchema,
+};
