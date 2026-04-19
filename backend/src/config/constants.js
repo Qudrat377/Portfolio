@@ -14,6 +14,12 @@ module.exports = {
     EXCUSED: 'EXCUSED',
   },
 
+  VOCABCHECK_STATUS: {
+    FOUND: 'FOUND',         // Yodlagan/Topgan
+    NOT_FOUND: 'NOT_FOUND', // Topolmagan/Yodlamagan
+    PENDING: 'PENDING',     // Hali so'ralmagan
+  },
+
   HOMEWORK_TYPES: {
     URL: 'URL',
     TEXT: 'TEXT',

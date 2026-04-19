@@ -186,6 +186,79 @@ class GroupService {
       resourceId: group._id,
     });
   }
+  async getGroupVocabularyStats(id, requestingUser) {
+    const group = await Group.findOne({ _id: id, isDeleted: false })
+      .populate('students', 'firstName lastName');
+    if (!group) throw new NotFoundError('Group');
+
+    // Faqat tegishli ustoz va yordamchilar kirishi mumkin
+    if (requestingUser.role === ROLES.TEACHER && group.teacher.toString() !== requestingUser._id.toString()) {
+      throw new AppError("Ushbu guruhga kirish huquqingiz yo'q", 403);
+    }
+    if (requestingUser.role === ROLES.ASSISTANT && group.assistant?.toString() !== requestingUser._id.toString()) {
+      throw new AppError("Ushbu guruhga kirish huquqingiz yo'q", 403);
+    }
+
+    const Homework = require('../models/Homework');
+    const Submission = require('../models/Submission');
+    const { HOMEWORK_TYPES, SUBMISSION_STATUS } = require('../config/constants');
+    
+    // Guruhga berilgan barcha VOCABULARY uyga vazifalari
+    const vocabHomeworks = await Homework.find({
+      group: id,
+      type: HOMEWORK_TYPES.VOCABULARY,
+      isDeleted: false,
+      isPublished: true
+    }).populate('vocabulary', 'title items');
+
+    const totalVocabs = vocabHomeworks.reduce((sum, hw) => sum + (hw.vocabulary?.items?.length || 0), 0);
+    const totalAssignments = vocabHomeworks.length;
+
+    const stats = [];
+    
+    for (const student of group.students) {
+      // Shu o'quvchining barcha lug'at topshiriqlari natijalari
+      const submissions = await Submission.find({
+        group: id,
+        student: student._id,
+        homework: { $in: vocabHomeworks.map(h => h._id) },
+        status: { $in: [SUBMISSION_STATUS.SUBMITTED, SUBMISSION_STATUS.APPROVED, SUBMISSION_STATUS.REVIEWED] }
+      });
+
+      let learnedWords = 0;
+      let completedAssignments = 0;
+
+      const breakdown = vocabHomeworks.map(hw => {
+        const sub = submissions.find(s => s.homework.toString() === hw._id.toString());
+        const isCompleted = !!sub;
+        if (isCompleted) {
+          completedAssignments++;
+          learnedWords += sub.vocabularyAnswers?.filter(v => v.isCorrect)?.length || 0;
+        }
+        return {
+          homeworkId: hw._id,
+          title: hw.vocabulary?.title || hw.title,
+          wordCount: hw.vocabulary?.items?.length || 0,
+          isCompleted,
+          score: sub ? (sub.score || 0) : 0,
+        };
+      });
+
+      stats.push({
+        studentId: student._id,
+        firstName: student.firstName,
+        lastName: student.lastName,
+        totalAssignments,
+        completedAssignments,
+        totalWords: totalVocabs,
+        learnedWords,
+        progressPct: totalAssignments > 0 ? Math.round((completedAssignments / totalAssignments) * 100) : 0,
+        breakdown,
+      });
+    }
+
+    return stats;
+  }
 }
 
 module.exports = new GroupService();

@@ -56,4 +56,11 @@ router.delete(
   groupController.removeStudent
 );
 
+// Get vocabulary learning progress stats for a group
+router.get(
+  '/:id/vocabulary-progress',
+  authorize(ADMIN, MANAGER, TEACHER, ASSISTANT),
+  groupController.getGroupVocabularyStats
+);
+
 module.exports = router;

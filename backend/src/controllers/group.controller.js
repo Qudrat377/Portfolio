@@ -36,3 +36,8 @@ exports.removeStudent = asyncHandler(async (req, res) => {
   await groupService.removeStudent(req.params.id, req.params.studentId, req.user);
   sendSuccess(res, { message: 'Student removed from group' });
 });
+
+exports.getGroupVocabularyStats = asyncHandler(async (req, res) => {
+  const stats = await groupService.getGroupVocabularyStats(req.params.id, req.user);
+  sendSuccess(res, { data: stats });
+});
