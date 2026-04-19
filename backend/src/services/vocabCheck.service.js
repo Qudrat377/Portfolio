@@ -2,7 +2,6 @@ const VocabCheck = require('../models/VocabCheck');
 const Group = require('../models/Group');
 const { AppError } = require('../utils/AppError');
 const { ROLES } = require('../config/constants');
-const dayjs = require('dayjs');
 
 class VocabCheckService {
   async getGroupVocabCheck(groupId, homeworkId, date, requestingUser) {
@@ -16,8 +15,9 @@ class VocabCheckService {
       throw new AppError('Unauthorized access to this group', 403);
     }
 
-    const startOfDay = dayjs(date).startOf('day').toDate();
-    const endOfDay = dayjs(date).endOf('day').toDate();
+    const targetDate = new Date(date);
+    const startOfDay = new Date(targetDate.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(targetDate.setHours(23, 59, 59, 999));
 
     return await VocabCheck.findOne({
       group: groupId,
@@ -39,8 +39,9 @@ class VocabCheckService {
       throw new AppError('Unauthorized access to this group', 403);
     }
 
-    const startOfDay = dayjs(date).startOf('day').toDate();
-    const endOfDay = dayjs(date).endOf('day').toDate();
+    const targetDate = new Date(date);
+    const startOfDay = new Date(targetDate.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(targetDate.setHours(23, 59, 59, 999));
     
     // Find if already exists today for this homework
     let check = await VocabCheck.findOne({
