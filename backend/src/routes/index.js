@@ -9,8 +9,6 @@ const vocabularyRoutes = require('./vocabulary.routes');
 const submissionRoutes = require('./submission.routes');
 const speakingResultRoutes = require('./speakingResult.routes');
 const analyticsRoutes = require('./analytics.routes');
-const studentRoutes = require('./student.routes');
-const teacherRoutes = require('./teacher.routes');
 const vocabCheckRoutes = require('./vocabCheck.routes');
 
 const About_Me_Router = require("./cotegory.routes")
@@ -26,8 +24,6 @@ const SetsRouter = require("./sets.routes")
 
 router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
-router.use('/students', studentRoutes);
-router.use('/teachers', teacherRoutes);
 router.use('/groups', groupRoutes);
 router.use('/attendance', attendanceRoutes);
 router.use('/homework', homeworkRoutes);
