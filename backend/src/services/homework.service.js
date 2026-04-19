@@ -36,7 +36,7 @@ class HomeworkService {
       Homework.find(filter)
         .populate('group', 'name level')
         .populate('createdBy', 'firstName lastName')
-        .populate('vocabulary', 'title')
+        .populate({ path: 'vocabulary', select: 'title items' })
         .sort(sortObj)
         .skip(skip)
         .limit(limit)
