@@ -7,7 +7,7 @@ const {
   addFromVocabSchema,
   addFromVocabCheckSchema,
   getAllWordsQuerySchema,
-} = require('../validators/studentVocab.validator');
+} = require('../validators/Studentvocab.validator');
 const { ROLES } = require('../config/constants');
 
 const { ADMIN, MANAGER, TEACHER, ASSISTANT, STUDENT } = ROLES;
