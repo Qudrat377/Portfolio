@@ -133,6 +133,12 @@ module.exports = {
     EXCUSED: 'EXCUSED',
   },
 
+  VOCABCHECK_STATUS: {
+    FOUND: 'FOUND',         // Yodlagan/Topgan
+    NOT_FOUND: 'NOT_FOUND', // Topolmagan/Yodlamagan
+    PENDING: 'PENDING',     // Hali so'ralmagan
+  },
+
   HOMEWORK_TYPES: {
     URL: 'URL',
     TEXT: 'TEXT',
@@ -204,6 +210,290 @@ const connectDB = async () => {
 };
 
 module.exports = connectDB;
+
+
+=========================================
+FILE: src\controllers\about_me.controller.js
+=========================================
+const About_meSchema = require("../models/about_me.schema");
+const CustomErrorHandler = require("../utils/custom-error-handler");
+const logger = require("../utils/logger");
+
+const getAllAboutMe = async (req, res, next) => {
+  try {
+    const aboutme = await About_meSchema.find();
+
+    logger.info(`About_me: ID - ${req.headers['user-agent']}`, {
+      metadata: { ip: req.ip, language: req.headers['accept-language'] },
+    });
+    
+    res.status(200).json(aboutme);
+  } catch (error) {
+    logger.error(`Kategoriya olishda xatolik: ${error.message}`, {
+      metadata: {
+        // userId: req.user?.id,
+        stack: error.stack,
+        params: req.params,
+      },
+    });
+
+    next(error);
+  }
+};
+
+const addAboutMe = async (req, res, next) => {
+  try {
+    const { salom, fullName, work_title, work_description, about_me_image } = req.body;
+
+    // 1. Ma'lumot yig'ish (Debug/Info)
+    // logger.info(`Kategoriya yaratish boshlandi: User ID - ${access_id}`);
+
+    const newCategory = await About_meSchema.create({
+      salom, 
+      fullName, 
+      work_title, 
+      work_description, 
+      about_me_image
+    });
+
+    // 3. Muvaffaqiyat (Info)
+    logger.info(
+      `Yangi kategoriya qo'shildi: Name - ${fullName}, Oner ID - ${about_me_image}`
+    );
+
+    res.status(201).json({
+      message: "Added new About me",
+    });
+  } catch (error) {
+    // 4. Xatolikni faylga yozish (Error)
+    // Error obyektini to'liq berish muhim (stack trace bilan)
+    logger.error(`Kategoriya qo'shishda tizim xatosi: ${error.message}`, {
+      stack: error.stack,
+      url: req.originalUrl,
+      method: req.method,
+    });
+
+    next(error);
+  }
+};
+
+// const getOneCotegory = async (req, res, next) => {
+//   try {
+//     const { id } = req.params;
+//     const Cotegory = await MadellarSchema.find({ cotegory_id: id });
+
+//     logger.info(`Kategoriya so'raldi: ID - ${req.user.id}`, {
+//       metadata: { ip: req.ip },
+//     });
+
+//     if (!Cotegory) {
+//       logger.warn(`Kategoriya topilmadi: So'ralgan ID - ${req.user.id}`, {
+//         metadata: { url: req.originalUrl },
+//       });
+//       throw CustomErrorHandler.NotFound("Cotegory not found");
+//     }
+
+//     logger.info(`Kategoriya so'raldi: ID - ${id}`, {
+//       metadata: { ip: req.ip },
+//     });
+
+//     res.status(200).json(Cotegory);
+//   } catch (error) {
+//     logger.error(`Kategoriya olishda xatolik: ${error.message}`, {
+//       metadata: {
+//         userId: req.user?.id,
+//         stack: error.stack,
+//         params: req.params,
+//       },
+//     });
+
+//     next(error);
+//   }
+// };
+
+// const getOneCotegory_for_admin_update = async (req, res, next) => {
+//   try {
+//     const {id} = req.params
+
+//     logger.info(`Kategoriya so'raldi: ID - ${id}`, {
+//     metadata: { ip: req.ip, url: req.originalUrl, id: req.user.id },
+//     });
+
+//     const cotegory = await CotegoriyaSchema.findById(id)
+
+//     res.status(200).json(cotegory)
+//   } catch (error) {
+//       logger.error(`Kategoriya olishda xatolik: ${error.message}`, {
+//         metadata: {
+//           userId: req.user?.id,
+//           stack: error.stack,
+//           params: req.params,
+//         },
+//     });
+
+//     next(error);
+//   }
+// };
+
+// const updateCotegory = async (req, res, next) => {
+//   try {
+//     const { id } = req.params;
+//     const { Companiy } = req.body;
+//     const Cotegory = await CotegoriyaSchema.findById(id);
+
+//     logger.info(`Kategoriya so'raldi: ID - ${id}`, {
+//       metadata: { ip: req.ip, url: req.originalUrl, id: req.user.id },
+//     });
+
+//     if (!Cotegory) {
+//       logger.warn(`Kategoriya topilmadi: So'ralgan ID - ${id}`, {
+//         metadata: { url: req.originalUrl, id: req.user.id },
+//       });
+//       throw CustomErrorHandler.NotFound("Cotegory not found");
+//     }
+
+//     const access_id = req.user.id;
+//     const user = await AuthSchema.findById(access_id);
+
+//     if (!user._id) {
+//       logger.warn(`Foydalanuvchi topilmadi: So'ralgan ID - ${id}`, {
+//         metadata: { url: req.originalUrl, id: req.user.id },
+//       });
+//       throw CustomErrorHandler.NotFound("user not found");
+//     }
+
+//     // o'zi qo'shganlarni o'zgartira olishligi uchun bu kodlar faqat ifni ichi
+
+//     if (req.user.role === "admin") {
+//       if (`${Cotegory.oner_id}` !== `${user._id}`) {
+//         logger.warn(`Bu sizga tegishli cotegorya emas: So'ralgan ID - ${id}`, {
+//           metadata: { url: req.originalUrl, id: req.user.id },
+//         });
+//         throw CustomErrorHandler.NotFound("This category is not yours");
+//       }
+//     }
+
+//     await CotegoriyaSchema.findByIdAndUpdate(id, {
+//       Companiy,
+//       img_url: req.image,
+//       oner_id: user._id,
+//     });
+
+//     logger.info(`Kategoriya qayta yangilandi: ID - ${id}`, {
+//       metadata: { ip: req.ip, url: req.originalUrl, id: req.user.id },
+//     });
+
+//     res.status(201).json({
+//       message: "Cotegory updated",
+//     });
+//   } catch (error) {
+//     logger.error(`Kategoriya o'zgartirishda xatolik: ${error.message}`, {
+//       metadata: {
+//         userId: req.user?.id,
+//         stack: error.stack,
+//         params: req.params,
+//       },
+//     });
+
+//     next(error);
+//   }
+// };
+
+// const deleteCotegory = async (req, res, next) => {
+//   try {
+//     const { id } = req.params;
+//     const Cotegory = await CotegoriyaSchema.findById(id);
+
+//     logger.info(`Kategoriya so'raldi: ID - ${id}`, {
+//       metadata: { ip: req.ip, url: req.originalUrl, id: req.user.id },
+//     });
+
+//     if (!Cotegory) {
+//       logger.warn(`Kategoriya topilmadi: So'ralgan ID - ${req.user.id}`, {
+//         metadata: { url: req.originalUrl },
+//       });
+//       throw CustomErrorHandler.NotFound("Cotegory not found");
+//     }
+
+//     const user = await AuthSchema.findById(req.user.id);
+
+//     // o'zi qo'shganlarni o'chira olishligi uchun bu kodlar faqat ifni ichi
+
+//     if (req.user.role === "admin") {
+//       if (`${Cotegory.oner_id}` !== `${user._id}`) {
+//         logger.warn(`Bu sizga tegishli cotegorya emas: So'ralgan ID - ${id}`, {
+//           metadata: { url: req.originalUrl, id: req.user.id },
+//         });
+//         throw CustomErrorHandler.NotFound("This category is not yours");
+//       }
+//     }
+//     await CotegoriyaSchema.findByIdAndDelete(id);
+
+//     logger.info(`Kategoriya o'chirildi: ID - ${req.user.id}`, {
+//       metadata: { ip: req.ip },
+//     });
+
+//     res.status(200).json({
+//       message: "Cotegory deleted",
+//     });
+//   } catch (error) {
+//     logger.error(`Kategoriya o'chirishda xatolik: ${error.message}`, {
+//       metadata: {
+//         userId: req.user?.id,
+//         stack: error.stack,
+//         params: req.params,
+//       },
+//     });
+
+//     next(error);
+//   }
+// };
+
+// const AllUpdeteCotegoriys = async (req, res, next) => {
+//   try {
+//     const Cotegoriy = await CotegoriyaSchema.find();
+
+//     const access_id = req.user.id;
+//     const user = await AuthSchema.findById(access_id);
+
+//     if (!user._id) {
+//       throw CustomErrorHandler.NotFound("user not found");
+//     }
+
+//     for (let i = 0; i < Cotegoriy.length; i++) {
+//       if (!["LADA", "CHEVROLET"].includes(Cotegoriy[i].Companiy)) {
+//         await CotegoriyaSchema.findByIdAndUpdate(Cotegoriy[i]._id, {
+//           oner_id: user._id,
+//         });
+//       }
+//     }
+
+//     res.status(200).json(Cotegoriy);
+//   } catch (error) {
+//     logger.error(
+//       `Kategoriyadagi barcha malumotlarni o'zgartirishda xatolik: ${error.message}`,
+//       {
+//         metadata: {
+//           userId: req.user?.id,
+//           stack: error.stack,
+//           params: req.params,
+//         },
+//       }
+//     );
+
+//     next(error);
+//   }
+// };
+
+module.exports = {
+  getAllAboutMe,
+  addAboutMe,
+  // getOneCotegory,
+  // updateCotegory,
+  // deleteCotegory,
+  // AllUpdeteCotegoriys,
+  // getOneCotegory_for_admin_update
+};
 
 
 =========================================
@@ -321,6 +611,69 @@ exports.changePassword = asyncHandler(async (req, res) => {
 
 
 =========================================
+FILE: src\controllers\cv_sertificat.controller.js
+=========================================
+const PdfSchema = require("../models/cv_and_sertifikat.schema");
+const CustomErrorHandler = require("../utils/custom-error-handler");
+const logger = require("../utils/logger");
+
+const getAllCVandSertificat = async (req, res, next) => {
+  try {
+    const learn = await PdfSchema.find();
+
+    logger.info(`CV and Statistika: ID - ${req.headers['user-agent']}`, {
+      metadata: { ip: req.ip, language: req.headers['accept-language'] },
+    });
+    
+    res.status(200).json(learn);
+  } catch (error) {
+    logger.error(`Learn olishda xatolik: ${error.message}`, {
+      metadata: {
+        // userId: req.user?.id,
+        stack: error.stack,
+        params: req.params,
+      },
+    });
+
+    next(error);
+  }
+};
+
+const addCVandSertificat = async (req, res, next) => {
+  try {
+    const { cv_url, sertificat_url } = req.body;
+
+    const newCategory = await PdfSchema.create({
+      cv_url,
+      sertificat_url
+    });
+
+    logger.info(
+      `Yangi Learn qo'shildi: Name - ${cv_url}, Oner ID - ${sertificat_url}`
+    );
+
+    res.status(201).json({
+      message: "Added new Learn",
+    });
+  } catch (error) {
+    logger.error(`Learn qo'shishda tizim xatosi: ${error.message}`, {
+      stack: error.stack,
+      url: req.originalUrl,
+      method: req.method,
+    });
+
+    next(error);
+  }
+};
+
+
+module.exports = {
+  getAllCVandSertificat,
+  addCVandSertificat
+};
+
+
+=========================================
 FILE: src\controllers\group.controller.js
 =========================================
 const groupService = require('../services/group.service');
@@ -360,6 +713,11 @@ exports.addStudent = asyncHandler(async (req, res) => {
 exports.removeStudent = asyncHandler(async (req, res) => {
   await groupService.removeStudent(req.params.id, req.params.studentId, req.user);
   sendSuccess(res, { message: 'Student removed from group' });
+});
+
+exports.getGroupVocabularyStats = asyncHandler(async (req, res) => {
+  const stats = await groupService.getGroupVocabularyStats(req.params.id, req.user);
+  sendSuccess(res, { data: stats });
 });
 
 
@@ -404,6 +762,326 @@ exports.getHomeworkStats = asyncHandler(async (req, res) => {
   const stats = await homeworkService.getHomeworkStats(req.params.groupId);
   sendSuccess(res, { data: stats });
 });
+
+
+=========================================
+FILE: src\controllers\learn.controller.js
+=========================================
+const LearnSchema = require("../models/learn.schema");
+const CustomErrorHandler = require("../utils/custom-error-handler");
+const logger = require("../utils/logger");
+
+const getAllLearn = async (req, res, next) => {
+  try {
+    const learn = await LearnSchema.find();
+
+    logger.info(`Statistics: ID - ${req.headers['user-agent']}`, {
+      metadata: { ip: req.ip, language: req.headers['accept-language'] },
+    });
+    
+    res.status(200).json(learn);
+  } catch (error) {
+    logger.error(`Learn olishda xatolik: ${error.message}`, {
+      metadata: {
+        // userId: req.user?.id,
+        stack: error.stack,
+        params: req.params,
+      },
+    });
+
+    next(error);
+  }
+};
+
+const addLearn = async (req, res, next) => {
+  try {
+    const { title_learn, description_learn, image_url } = req.body;
+
+    const newCategory = await LearnSchema.create({
+      title_learn, 
+      description_learn, 
+      image_url
+    });
+
+    logger.info(
+      `Yangi Learn qo'shildi: Name - ${title_learn}, Oner ID - ${image_url}`
+    );
+
+    res.status(201).json({
+      message: "Added new Learn",
+    });
+  } catch (error) {
+    logger.error(`Learn qo'shishda tizim xatosi: ${error.message}`, {
+      stack: error.stack,
+      url: req.originalUrl,
+      method: req.method,
+    });
+
+    next(error);
+  }
+};
+
+
+module.exports = {
+  getAllLearn,
+  addLearn
+};
+
+
+=========================================
+FILE: src\controllers\sets.controller.js
+=========================================
+const SetsSchema = require("../models/sets.schema");
+const CustomErrorHandler = require("../utils/custom-error-handler");
+const logger = require("../utils/logger");
+
+const getAllSets = async (req, res, next) => {
+  try {
+    const learn = await SetsSchema.find();
+
+    logger.info(`Sets so'raldi: DATA - ${req.headers['user-agent']}`, {
+      metadata: { ip: req.ip, language: req.headers['accept-language'] },
+    });
+    
+    res.status(200).json(learn);
+  } catch (error) {
+    logger.error(`Sets olishda xatolik: ${error.message}`, {
+      metadata: {
+        // userId: req.user?.id,
+        stack: error.stack,
+        params: req.params,
+      },
+    });
+
+    next(error);
+  }
+};
+
+const addSets = async (req, res, next) => {
+  try {
+    const { icon, title, url, context } = req.body;
+
+    const newCategory = await SetsSchema.create({
+      icon, 
+      title, 
+      url,
+      context
+    });
+
+    logger.info(
+      `Yangi Sets qo'shildi: Name - ${title}, Oner ID - ${url}`
+    );
+
+    res.status(201).json({
+      message: "Added new Sets",
+    });
+  } catch (error) {
+    logger.error(`Sets qo'shishda tizim xatosi: ${error.message}`, {
+      stack: error.stack,
+      url: req.originalUrl,
+      method: req.method,
+    });
+
+    next(error);
+  }
+};
+
+module.exports = {
+  getAllSets,
+  addSets
+};
+
+
+=========================================
+FILE: src\controllers\set_me.controller.js
+=========================================
+const SetMeSchema = require("../models/set_me.schema");
+const CustomErrorHandler = require("../utils/custom-error-handler");
+const logger = require("../utils/logger");
+
+const getAllSetMe = async (req, res, next) => {
+  try {
+    const learn = await SetMeSchema.find();
+
+    logger.info(`Set me so'raldi: DATA - ${req.headers['user-agent']}`, {
+      metadata: { ip: req.ip, language: req.headers['accept-language'] },
+    });
+    
+    res.status(200).json(learn);
+  } catch (error) {
+    logger.error(`Set me olishda xatolik: ${error.message}`, {
+      metadata: {
+        // userId: req.user?.id,
+        stack: error.stack,
+        params: req.params,
+      },
+    });
+
+    next(error);
+  }
+};
+
+const addSetMe = async (req, res, next) => {
+  try {
+    const { set_me_title_first, set_me_title_second, set_me_description } = req.body;
+
+    const newCategory = await SetMeSchema.create({
+      set_me_title_first, 
+      set_me_title_second, 
+      set_me_description
+    });
+
+    logger.info(
+      `Yangi Set me qo'shildi: Name - ${set_me_title_first}, Oner ID - ${set_me_title_second}`
+    );
+
+    res.status(201).json({
+      message: "Added new Set me",
+    });
+  } catch (error) {
+    logger.error(`Set me qo'shishda tizim xatosi: ${error.message}`, {
+      stack: error.stack,
+      url: req.originalUrl,
+      method: req.method,
+    });
+
+    next(error);
+  }
+};
+
+
+module.exports = {
+  getAllSetMe,
+  addSetMe
+};
+
+
+=========================================
+FILE: src\controllers\skillls_title.controller.js
+=========================================
+const SkillsTitleSchema = require("../models/skills.title.schema");
+const CustomErrorHandler = require("../utils/custom-error-handler");
+const logger = require("../utils/logger");
+
+const getAllSkillsTitle = async (req, res, next) => {
+  try {
+    const learn = await SkillsTitleSchema.find();
+
+    logger.info(`Skills so'raldi: DATA - ${req.headers['user-agent']}`, {
+      metadata: { ip: req.ip, language: req.headers['accept-language'] },
+    });
+    
+    res.status(200).json(learn);
+  } catch (error) {
+    logger.error(`Skills olishda xatolik: ${error.message}`, {
+      metadata: {
+        // userId: req.user?.id,
+        stack: error.stack,
+        params: req.params,
+      },
+    });
+
+    next(error);
+  }
+};
+
+const addSkillsTitle = async (req, res, next) => {
+  try {
+    const { title_skill_header, title_skill_color, skill_description } = req.body;
+
+    const newCategory = await SkillsTitleSchema.create({
+      title_skill_header, 
+      title_skill_color, 
+      skill_description
+    });
+
+    logger.info(
+      `Yangi Skills qo'shildi: Name - ${title_skill_header}, Oner ID - ${title_skill_color}`
+    );
+
+    res.status(201).json({
+      message: "Added new Skills",
+    });
+  } catch (error) {
+    logger.error(`Skills qo'shishda tizim xatosi: ${error.message}`, {
+      stack: error.stack,
+      url: req.originalUrl,
+      method: req.method,
+    });
+
+    next(error);
+  }
+};
+
+
+module.exports = {
+  getAllSkillsTitle,
+  addSkillsTitle
+};
+
+
+=========================================
+FILE: src\controllers\skills.controller.js
+=========================================
+const SkillsSchema = require("../models/skills.schema");
+const CustomErrorHandler = require("../utils/custom-error-handler");
+const logger = require("../utils/logger");
+
+const getAllSkills = async (req, res, next) => {
+  try {
+    const learn = await SkillsSchema.find();
+
+    logger.info(`Skills so'raldi: DATA - ${req.headers['user-agent']}`, {
+      metadata: { ip: req.ip, language: req.headers['accept-language'] },
+    });
+    
+    res.status(200).json(learn);
+  } catch (error) {
+    logger.error(`Skills olishda xatolik: ${error.message}`, {
+      metadata: {
+        // userId: req.user?.id,
+        stack: error.stack,
+        params: req.params,
+      },
+    });
+
+    next(error);
+  }
+};
+
+const addSkills = async (req, res, next) => {
+  try {
+    const { title_skill, skill_items, icon } = req.body;
+
+    const newCategory = await SkillsSchema.create({
+      title_skill, 
+      skill_items, 
+      icon
+    });
+
+    logger.info(
+      `Yangi Skills qo'shildi: Name - ${title_skill}, Oner ID - ${skill_items}`
+    );
+
+    res.status(201).json({
+      message: "Added new Skills",
+    });
+  } catch (error) {
+    logger.error(`Skills qo'shishda tizim xatosi: ${error.message}`, {
+      stack: error.stack,
+      url: req.originalUrl,
+      method: req.method,
+    });
+
+    next(error);
+  }
+};
+
+
+module.exports = {
+  getAllSkills,
+  addSkills
+};
 
 
 =========================================
@@ -455,6 +1133,187 @@ exports.getStudentProgress = asyncHandler(async (req, res) => {
   sendSuccess(res, { data: result });
 });
 
+
+=========================================
+FILE: src\controllers\statistics.controller.js
+=========================================
+const StatisticsSchema = require("../models/statistika.schema");
+const CustomErrorHandler = require("../utils/custom-error-handler");
+const logger = require("../utils/logger");
+
+const getAllStatistics = async (req, res, next) => {
+  try {
+    const aboutme = await StatisticsSchema.find();
+
+    logger.info(`Statistics: ID - ${req.headers['user-agent']}`, {
+      metadata: { ip: req.ip, language: req.headers['accept-language'] },
+    });
+    
+    res.status(200).json(aboutme);
+  } catch (error) {
+    logger.error(`Statistika olishda xatolik: ${error.message}`, {
+      metadata: {
+        // userId: req.user?.id,
+        stack: error.stack,
+        params: req.params,
+      },
+    });
+
+    next(error);
+  }
+};
+
+const addStatistics = async (req, res, next) => {
+  try {
+    const { title, value } = req.body;
+
+    const newCategory = await StatisticsSchema.create({
+      title,
+      value
+    });
+
+    logger.info(
+      `Yangi statistika qo'shildi: Name - ${title}, Oner ID - ${value}`
+    );
+
+    res.status(201).json({
+      message: "Added new Statistika",
+    });
+  } catch (error) {
+    logger.error(`Statistika qo'shishda tizim xatosi: ${error.message}`, {
+      stack: error.stack,
+      url: req.originalUrl,
+      method: req.method,
+    });
+
+    next(error);
+  }
+};
+
+
+module.exports = {
+  getAllStatistics,
+  addStatistics,
+};
+
+
+=========================================
+FILE: src\controllers\Studentvocab.controller.js
+=========================================
+const studentVocabService = require('../services/studentVocab.service');
+const { sendSuccess } = require('../utils/response');
+const { asyncHandler } = require('../middlewares/error.middleware');
+
+// ── O'quvchi uchun ─────────────────────────────────────────────────────────
+
+// GET /api/v1/student-vocab/due
+// Bugun takrorlanishi kerak so'zlar
+exports.getDueWords = asyncHandler(async (req, res) => {
+  const result = await studentVocabService.getDueWords(req.user._id);
+  sendSuccess(res, { data: result });
+});
+
+// GET /api/v1/student-vocab/stats
+// Statistika
+exports.getMyStats = asyncHandler(async (req, res) => {
+  const result = await studentVocabService.getStats(req.user._id);
+  sendSuccess(res, { data: result });
+});
+
+// GET /api/v1/student-vocab/words?status=learning&page=1&limit=30
+// Barcha so'zlar (sahifalab)
+exports.getAllWords = asyncHandler(async (req, res) => {
+  const result = await studentVocabService.getAllWords(req.user._id, req.query);
+  sendSuccess(res, { data: result });
+});
+
+// POST /api/v1/student-vocab/review
+// O'quvchi o'rganib javob berdi
+// Body: { reviews: [{ vocabularyItemId, isCorrect }] }
+exports.submitReview = asyncHandler(async (req, res) => {
+  const result = await studentVocabService.submitReview(
+    req.user._id,
+    req.body.reviews
+  );
+  sendSuccess(res, {
+    data: result,
+    message: `${result.reviewed} ta so'z tekshirildi`,
+  });
+});
+
+// ── O'qituvchi / Assistant uchun ────────────────────────────────────────────
+
+// POST /api/v1/student-vocab/add-from-vocab/:vocabularyId
+// Teacher lug'at yaratib, o'quvchilar bazasiga qo'shadi
+// Body: { studentIds: ['...', '...'] }
+exports.addFromVocabulary = asyncHandler(async (req, res) => {
+  const { vocabularyId } = req.params;
+  const { studentIds } = req.body;
+
+  if (!studentIds || studentIds.length === 0) {
+    return sendSuccess(res, { data: { results: [] }, message: 'studentIds bo\'sh' });
+  }
+
+  // Barcha o'quvchilar uchun parallel qo'shish
+  const results = await Promise.allSettled(
+    studentIds.map((sid) =>
+      studentVocabService.addWordsFromVocabulary(sid, vocabularyId)
+    )
+  );
+
+  const summary = results.map((r, i) => ({
+    studentId: studentIds[i],
+    success: r.status === 'fulfilled',
+    addedCount: r.status === 'fulfilled' ? r.value.addedCount : 0,
+    error: r.status === 'rejected' ? r.reason?.message : null,
+  }));
+
+  sendSuccess(res, {
+    data: { summary },
+    message: 'Lug\'at o\'quvchilar bazasiga qo\'shildi',
+    statusCode: 201,
+  });
+});
+
+// POST /api/v1/student-vocab/from-vocabcheck
+// VocabCheck natijalaridan so'z qo'shish
+// Body: { studentId, wordResults: [{vocabularyItemId, word, translation, language, vocabularyId, isCorrect}] }
+exports.addFromVocabCheck = asyncHandler(async (req, res) => {
+  const { studentId, wordResults } = req.body;
+
+  const result = await studentVocabService.addFromVocabCheckResult(
+    studentId,
+    wordResults
+  );
+
+  sendSuccess(res, {
+    data: result,
+    message: 'VocabCheck natijalari saqlandi',
+    statusCode: 201,
+  });
+});
+
+// GET /api/v1/student-vocab/group-stats
+// Guruh o'quvchilarining umumiy statistikasi
+// Query: studentIds=id1,id2,id3
+exports.getGroupStats = asyncHandler(async (req, res) => {
+  const studentIds = req.query.studentIds
+    ? req.query.studentIds.split(',').filter(Boolean)
+    : [];
+
+  if (studentIds.length === 0) {
+    return sendSuccess(res, { data: [] });
+  }
+
+  const result = await studentVocabService.getGroupStats(studentIds);
+  sendSuccess(res, { data: result });
+});
+
+// DELETE /api/v1/student-vocab/:studentId/reset  (faqat ADMIN)
+exports.resetStudentVocab = asyncHandler(async (req, res) => {
+  await studentVocabService.resetStudentVocab(req.params.studentId);
+  sendSuccess(res, { message: 'O\'quvchi lug\'at bazasi tozalandi' });
+});
 
 =========================================
 FILE: src\controllers\submission.controller.js
@@ -548,6 +1407,27 @@ exports.toggleUserStatus = asyncHandler(async (req, res) => {
 
 
 =========================================
+FILE: src\controllers\vocabCheck.controller.js
+=========================================
+const vocabCheckService = require('../services/vocabCheck.service');
+const { sendSuccess } = require('../utils/response');
+const { asyncHandler } = require('../middlewares/error.middleware');
+
+exports.getGroupVocabCheck = asyncHandler(async (req, res) => {
+  const { groupId } = req.params;
+  const { homeworkId, date } = req.query; // pass date in YYYY-MM-DD
+  
+  const check = await vocabCheckService.getGroupVocabCheck(groupId, homeworkId, date, req.user);
+  sendSuccess(res, { data: { vocabCheck: check } });
+});
+
+exports.markVocabCheck = asyncHandler(async (req, res) => {
+  const check = await vocabCheckService.markVocabCheck(req.body, req.user);
+  sendSuccess(res, 201, { message: 'Vocabulary check saved successfully', data: { vocabCheck: check } });
+});
+
+
+=========================================
 FILE: src\controllers\vocabulary.controller.js
 =========================================
 const vocabularyService = require('../services/vocabulary.service');
@@ -555,7 +1435,7 @@ const { sendSuccess } = require('../utils/response');
 const { asyncHandler } = require('../middlewares/error.middleware');
 
 exports.getVocabularies = asyncHandler(async (req, res) => {
-  const result = await vocabularyService.getVocabularies(req.query, req.user);
+  const result = await vocabularyService.getVocabularies(req.query);
   sendSuccess(res, { data: result.vocabularies, meta: result.meta });
 });
 
@@ -576,19 +1456,209 @@ exports.updateVocabulary = asyncHandler(async (req, res) => {
 
 exports.updateItemTranslation = asyncHandler(async (req, res) => {
   const { itemId, editedTranslation } = req.body;
-  const vocabulary = await vocabularyService.updateItemTranslation(
-    req.params.id,
-    itemId,
-    editedTranslation,
-    req.user
-  );
+  const vocabulary = await vocabularyService.updateItemTranslation(req.params.id, itemId, editedTranslation, req.user);
   sendSuccess(res, { data: { vocabulary }, message: 'Translation updated successfully' });
 });
 
 exports.deleteVocabulary = asyncHandler(async (req, res) => {
-  await vocabularyService.softDeleteVocabulary(req.params.id, req.user);
+  await vocabularyService.deleteVocabulary(req.params.id, req.user);
   sendSuccess(res, { message: 'Vocabulary deleted successfully' });
 });
+
+// ── Assignment ─────────────────────────────────────────────────────────────────
+
+exports.assignToGroup = asyncHandler(async (req, res) => {
+  const assignment = await vocabularyService.assignToGroup(
+    req.params.id,
+    req.params.groupId,
+    req.body,
+    req.user
+  );
+  sendSuccess(res, { data: { assignment }, message: "Vocabulary assigned to group", statusCode: 201 });
+});
+
+exports.removeFromGroup = asyncHandler(async (req, res) => {
+  await vocabularyService.removeFromGroup(req.params.id, req.params.groupId, req.user);
+  sendSuccess(res, { message: "Vocabulary removed from group" });
+});
+
+exports.getGroupVocabularies = asyncHandler(async (req, res) => {
+  const result = await vocabularyService.getGroupVocabularies(req.params.groupId, req.query);
+  sendSuccess(res, { data: result.vocabularies, meta: result.meta });
+});
+
+exports.getVocabularyGroups = asyncHandler(async (req, res) => {
+  const groups = await vocabularyService.getVocabularyGroups(req.params.id);
+  sendSuccess(res, { data: { groups } });
+});
+
+
+// const vocabularyService = require('../services/vocabulary.service');
+// const { sendSuccess } = require('../utils/response');
+// const { asyncHandler } = require('../middlewares/error.middleware');
+
+// exports.getVocabularies = asyncHandler(async (req, res) => {
+//   const result = await vocabularyService.getVocabularies(req.query, req.user);
+//   sendSuccess(res, { data: result.vocabularies, meta: result.meta });
+// });
+
+// exports.getVocabularyById = asyncHandler(async (req, res) => {
+//   const vocabulary = await vocabularyService.getVocabularyById(req.params.id);
+//   sendSuccess(res, { data: { vocabulary } });
+// });
+
+// exports.createVocabulary = asyncHandler(async (req, res) => {
+//   const vocabulary = await vocabularyService.createVocabulary(req.body, req.user);
+//   sendSuccess(res, { data: { vocabulary }, message: 'Vocabulary created successfully', statusCode: 201 });
+// });
+
+// exports.updateVocabulary = asyncHandler(async (req, res) => {
+//   const vocabulary = await vocabularyService.updateVocabulary(req.params.id, req.body, req.user);
+//   sendSuccess(res, { data: { vocabulary }, message: 'Vocabulary updated successfully' });
+// });
+
+// exports.updateItemTranslation = asyncHandler(async (req, res) => {
+//   const { itemId, editedTranslation } = req.body;
+//   const vocabulary = await vocabularyService.updateItemTranslation(
+//     req.params.id,
+//     itemId,
+//     editedTranslation,
+//     req.user
+//   );
+//   sendSuccess(res, { data: { vocabulary }, message: 'Translation updated successfully' });
+// });
+
+// exports.deleteVocabulary = asyncHandler(async (req, res) => {
+//   await vocabularyService.softDeleteVocabulary(req.params.id, req.user);
+//   sendSuccess(res, { message: 'Vocabulary deleted successfully' });
+// });
+
+
+=========================================
+FILE: src\controllers\works.controller.js
+=========================================
+const WorksSchema = require("../models/works.schema");
+const CustomErrorHandler = require("../utils/custom-error-handler");
+const logger = require("../utils/logger");
+
+const getAllWorks = async (req, res, next) => {
+  try {
+    const learn = await WorksSchema.find();
+
+    logger.info(`Works so'raldi: DATA - ${req.headers['user-agent']}`, {
+      metadata: { ip: req.ip, language: req.headers['accept-language'] },
+    });
+    
+    res.status(200).json(learn);
+  } catch (error) {
+    logger.error(`Works olishda xatolik: ${error.message}`, {
+      metadata: {
+        // userId: req.user?.id,
+        stack: error.stack,
+        params: req.params,
+      },
+    });
+
+    next(error);
+  }
+};
+
+const addWorks = async (req, res, next) => {
+  try {
+    const { work_header_title, work_value } = req.body;
+
+    const newCategory = await WorksSchema.create({
+      work_header_title, 
+      work_value
+    });
+
+    logger.info(
+      `Yangi Works qo'shildi: Name - ${work_header_title}, Oner ID - ${work_value}`
+    );
+
+    res.status(201).json({
+      message: "Added new Works",
+    });
+  } catch (error) {
+    logger.error(`Works qo'shishda tizim xatosi: ${error.message}`, {
+      stack: error.stack,
+      url: req.originalUrl,
+      method: req.method,
+    });
+
+    next(error);
+  }
+};
+
+module.exports = {
+  getAllWorks,
+  addWorks
+};
+
+
+=========================================
+FILE: src\controllers\work_projects.controller.js
+=========================================
+const WorkProjectSchema = require("../models/work_project.schema");
+const CustomErrorHandler = require("../utils/custom-error-handler");
+const logger = require("../utils/logger");
+
+const getAllWorksProjects = async (req, res, next) => {
+  try {
+    const learn = await WorkProjectSchema.find();
+
+    logger.info(`Works so'raldi: DATA - ${req.headers['user-agent']}`, {
+      metadata: { ip: req.ip, language: req.headers['accept-language'] },
+    });
+    
+    res.status(200).json(learn);
+  } catch (error) {
+    logger.error(`Works olishda xatolik: ${error.message}`, {
+      metadata: {
+        // userId: req.user?.id,
+        stack: error.stack,
+        params: req.params,
+      },
+    });
+
+    next(error);
+  }
+};
+
+const addWorksProjects = async (req, res, next) => {
+  try {
+    const { work_image, work_content, work_title, work_stack, github_link } = req.body;
+
+    const newCategory = await WorkProjectSchema.create({
+      work_image, 
+      work_content, 
+      work_title, 
+      work_stack,
+      github_link
+    });
+
+    logger.info(
+      `Yangi Works qo'shildi: Name - ${work_image}, Oner ID - ${work_title}`
+    );
+
+    res.status(201).json({
+      message: "Added new Works",
+    });
+  } catch (error) {
+    logger.error(`Works qo'shishda tizim xatosi: ${error.message}`, {
+      stack: error.stack,
+      url: req.originalUrl,
+      method: req.method,
+    });
+
+    next(error);
+  }
+};
+
+module.exports = {
+  getAllWorksProjects,
+  addWorksProjects
+};
 
 
 =========================================
@@ -832,22 +1902,22 @@ const createLimiter = (windowMs, max, message) =>
 
 // General API limiter
 const apiLimiter = createLimiter(
-  parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-  parseInt(process.env.RATE_LIMIT_MAX) || 100,
+  parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 1 * 60 * 1000, //15 * 60 * 1000 
+  parseInt(process.env.RATE_LIMIT_MAX) || 1000,
   'Too many requests, please try again later'
 );
 
 // Strict limiter for auth endpoints
 const authLimiter = createLimiter(
-  15 * 60 * 1000, // 15 min
+  1 * 60 * 1000, //15 * 60 * 1000  // 15 min 
   20,
-  'Too many authentication attempts, please try again in 15 minutes'
+  "Juda ko'p marotaba urinishlar qildingiz shuning uchun sizni 15 daqiqaga xafsiz rejimga tushurdim. Too many authentication attempts, please try again in 15 minutes"
 );
 
 // Very strict for password change
 const passwordLimiter = createLimiter(
-  60 * 60 * 1000, // 1 hour
-  5,
+  1 * 60 * 1000, // 60 * 60 * 1000 // 1 hour
+  20,
   'Too many password change attempts, please try again in 1 hour'
 );
 
@@ -888,6 +1958,38 @@ const validate = (schema, source = 'body') => {
 
 module.exports = { validate };
 
+
+=========================================
+FILE: src\models\about_me.schema.js
+=========================================
+const { Schema, model } = require("mongoose");
+
+const About_me = new Schema({
+    salom: {
+        type: String,
+    },
+    fullName: {
+        type: String,
+    },
+    work_title: {
+        type: String,
+    },
+    work_description: {
+        type: String,
+    },
+    about_me_image: {
+        type: String,
+    },
+},
+{
+    versionKey: false,
+    timestamps: true
+}
+)
+
+const About_meSchema = model("about_me", About_me)
+
+module.exports = About_meSchema
 
 =========================================
 FILE: src\models\Attendance.js
@@ -1014,6 +2116,29 @@ module.exports = mongoose.model('AuditLog', auditLogSchema);
 
 
 =========================================
+FILE: src\models\cv_and_sertifikat.schema.js
+=========================================
+const { Schema, model } = require("mongoose");
+
+const Pdf_url = new Schema({
+    cv_url: {
+        type: String,
+    },
+    sertificat_url: {
+        type: String,
+    },
+},
+{
+    versionKey: false,
+    timestamps: true
+}
+)
+
+const PdfSchema = model("pdf_url", Pdf_url)
+
+module.exports = PdfSchema
+
+=========================================
 FILE: src\models\Group.js
 =========================================
 const mongoose = require('mongoose');
@@ -1094,7 +2219,7 @@ const groupSchema = new mongoose.Schema(
     },
     startDate: {
       type: Date,
-      required: true,
+      required: false,
     },
     endDate: {
       type: Date,
@@ -1228,6 +2353,142 @@ module.exports = mongoose.model('Homework', homeworkSchema);
 
 
 =========================================
+FILE: src\models\learn.schema.js
+=========================================
+const { Schema, model } = require("mongoose");
+
+const Learn = new Schema({
+    title_learn: {
+        type: String,
+    },
+    description_learn: {
+        type: String,
+    },
+    image_url: {
+        type: String,
+    },
+},
+{
+    versionKey: false,
+    timestamps: true
+}
+)
+
+const LearnSchema = model("learn", Learn)
+
+module.exports = LearnSchema
+
+=========================================
+FILE: src\models\sets.schema.js
+=========================================
+const { Schema, model } = require("mongoose");
+
+const Sets = new Schema({
+    icon: {
+        type: String,
+    },
+    title: {
+        type: String,
+    },
+    url: {
+        type: String,
+    },
+    context: {
+        type: String,
+    },
+},
+{
+    versionKey: false,
+    timestamps: true
+}
+)
+
+const SetsSchema = model("sets", Sets)
+
+module.exports = SetsSchema
+
+=========================================
+FILE: src\models\set_me.schema.js
+=========================================
+const { Schema, model } = require("mongoose");
+
+const SetMe = new Schema({
+    set_me_title_first: {
+        type: String,
+    },
+    set_me_title_second: {
+        type: String,
+    },
+    set_me_description: {
+        type: String,
+    },
+},
+{
+    versionKey: false,
+    timestamps: true
+}
+)
+
+const SetMeSchema = model("setme", SetMe)
+
+module.exports = SetMeSchema
+
+=========================================
+FILE: src\models\skills.schema.js
+=========================================
+const { Schema, model } = require("mongoose");
+
+const Skills = new Schema({
+    title_skill: {
+        type: String,
+    },
+    // Bu yerda biz massiv ichida faqat stringlar bo'lishini aytyapmiz
+    skill_items: [
+        {
+            type: String,
+            trim: true
+        }
+    ],
+    icon: {
+        type: String,
+    },
+},
+{
+    versionKey: false,
+    timestamps: true
+});
+
+const SkillsSchema = model("skill_items", Skills);
+
+module.exports = SkillsSchema;
+
+=========================================
+FILE: src\models\skills.title.schema.js
+=========================================
+const { string } = require("joi");
+const { Schema, model } = require("mongoose");
+
+const SkillsTitle = new Schema({
+    title_skill_header: {
+        type: String,
+    },
+    title_skill_color: {
+        type: String,
+    },
+    skill_description: {
+        type: String,
+    },
+},
+{
+    versionKey: false,
+    timestamps: true
+});
+
+const SkillsTitleSchema = model("skills", SkillsTitle);
+
+module.exports = SkillsTitleSchema;
+
+=========================================
 FILE: src\models\SpeakingResult.js
 =========================================
 const mongoose = require('mongoose');
@@ -1355,6 +2616,143 @@ speakingResultSchema.index({ student: 1, createdAt: -1 });
 
 module.exports = mongoose.model('SpeakingResult', speakingResultSchema);
 
+
+=========================================
+FILE: src\models\statistika.schema.js
+=========================================
+const { Schema, model } = require("mongoose");
+
+const Statistics = new Schema({
+    title: {
+        type: String,
+    },
+    value: {
+        type: String,
+    },
+},
+{
+    versionKey: false,
+    timestamps: true
+}
+)
+
+const StatisticsSchema = model("statistics", Statistics)
+
+module.exports = StatisticsSchema
+
+=========================================
+FILE: src\models\StudentVocab.js
+=========================================
+const mongoose = require('mongoose');
+
+/**
+ * StudentVocab — O'quvchining shaxsiy lug'at bazasi
+ *
+ * Ebbinghaus takrorlash tizimi asosida ishlaydi.
+ * Har bir so'z uchun alohida holat saqlanadi:
+ *   - qancha marta to'g'ri aytilgan
+ *   - keyingi takrorlash qachon bo'lishi kerak
+ *   - qaysi bosqichda (interval)
+ *
+ * Render.com / MongoDB Atlas uchun optimallashtirilgan:
+ *   - Bitta o'quvchi uchun bitta hujjat (subdocument array)
+ *   - Compound index — tezkor qidiruv
+ *   - Faqat zarur maydonlar saqlanadi
+ */
+
+// ── Har bir so'z uchun holat ──────────────────────────────────────────────────
+const wordStateSchema = new mongoose.Schema(
+  {
+    // Manba: Vocabulary collection dagi item._id
+    vocabularyItemId: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: true,
+    },
+
+    // So'zning o'zi (qidiruvda kerak)
+    word: { type: String, required: true, trim: true },
+    translation: { type: String, trim: true },
+    language: { type: String, enum: ['EN', 'UZ'], default: 'EN' },
+
+    // Qaysi lug'atdan kelgan
+    vocabularyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Vocabulary',
+      required: true,
+    },
+
+    // ── SM-2 algoritmi maydonlari ─────────────────────────────────────────────
+    // Bosqich: 0=yangi, 1=birinchi, 2=ikkinchi... (max 7)
+    stage: { type: Number, default: 0, min: 0, max: 7 },
+
+    // Ketma-ket to'g'ri javoblar soni
+    consecutiveCorrect: { type: Number, default: 0 },
+
+    // Jami tekshirilgan marta
+    totalReviews: { type: Number, default: 0 },
+
+    // Jami to'g'ri javoblar
+    totalCorrect: { type: Number, default: 0 },
+
+    // Keyingi takrorlash sanasi
+    nextReviewAt: { type: Date, default: () => new Date() },
+
+    // Oxirgi marta tekshirilgan sana
+    lastReviewedAt: { type: Date, default: null },
+
+    // Holat
+    // new      → hali o'rganilmagan
+    // learning → o'rganilmoqda (stage < 3)
+    // review   → mustahkamlash (stage 3-5)
+    // mastered → o'zlashtirilgan (stage >= 6, 21+ kun)
+    status: {
+      type: String,
+      enum: ['new', 'learning', 'review', 'mastered'],
+      default: 'new',
+    },
+  },
+  { _id: false }
+);
+
+// ── Asosiy model ──────────────────────────────────────────────────────────────
+const studentVocabSchema = new mongoose.Schema(
+  {
+    student: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+
+    // So'zlar ro'yxati (subdocument array)
+    words: [wordStateSchema],
+
+    // Statistika (tezkor ko'rsatish uchun)
+    stats: {
+      total: { type: Number, default: 0 },
+      mastered: { type: Number, default: 0 },
+      learning: { type: Number, default: 0 },
+      newWords: { type: Number, default: 0 },
+      dueToday: { type: Number, default: 0 },
+    },
+
+    // Oxirgi o'rganish sanasi
+    lastStudiedAt: { type: Date, default: null },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+// ── Indexlar ──────────────────────────────────────────────────────────────────
+// Har bir o'quvchi uchun bitta hujjat
+studentVocabSchema.index({ student: 1 }, { unique: true });
+
+// So'z qidirish uchun
+studentVocabSchema.index({ student: 1, 'words.nextReviewAt': 1 });
+studentVocabSchema.index({ student: 1, 'words.vocabularyItemId': 1 });
+studentVocabSchema.index({ student: 1, 'words.status': 1 });
+
+module.exports = mongoose.model('StudentVocab', studentVocabSchema);
 
 =========================================
 FILE: src\models\Submission.js
@@ -1594,79 +2992,76 @@ module.exports = mongoose.model('User', userSchema);
 
 
 =========================================
-FILE: src\models\Vocabulary.js
+FILE: src\models\VocabCheck.js
 =========================================
 const mongoose = require('mongoose');
+const { VOCABCHECK_STATUS } = require('../config/constants');
 
-const vocabularyItemSchema = new mongoose.Schema(
+const wordCheckSchema = new mongoose.Schema(
   {
-    word: {
-      type: String,
-      required: true,
-      trim: true,
-      maxlength: 100,
-    },
-    language: {
-      type: String,
-      enum: ['EN', 'UZ'],
-      required: true,
-    },
-    translation: {
-      type: String,
-      trim: true,
-      maxlength: 200,
-    },
-    // Auto-translated from mobile, stored here
-    autoTranslation: {
-      type: String,
-      trim: true,
-      maxlength: 200,
-    },
-    // Teacher can override auto-translation
-    editedTranslation: {
-      type: String,
-      trim: true,
-      maxlength: 200,
-    },
-    pronunciation: {
-      type: String,
-      trim: true,
-    },
-    example: {
-      type: String,
-      trim: true,
-      maxlength: 300,
-    },
-    imageUrl: {
-      type: String,
-      trim: true,
-    },
+    wordId: { type: mongoose.Schema.Types.ObjectId, required: true },
+    word: { type: String, required: true },
+    isFound: { type: Boolean, required: true },
   },
-  { _id: true }
+  { _id: false }
 );
 
-const vocabularySchema = new mongoose.Schema(
+const vocabCheckRecordSchema = new mongoose.Schema(
   {
-    title: {
-      type: String,
+    student: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
       required: true,
+    },
+    wordChecks: [wordCheckSchema],
+    score: {
+      type: Number,
+      default: 0,
+    },
+    note: {
+      type: String,
       trim: true,
       maxlength: 200,
     },
+  },
+  { _id: false }
+);
+
+const vocabCheckSchema = new mongoose.Schema(
+  {
     group: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Group',
       required: true,
     },
-    createdBy: {
+    homework: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Homework',
+      required: true,
+    },
+    date: {
+      type: Date,
+      required: true,
+    },
+    records: [vocabCheckRecordSchema],
+    markedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,
     },
-    items: [vocabularyItemSchema],
-    isDeleted: {
-      type: Boolean,
-      default: false,
+    updatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    topic: {
+      type: String,
+      trim: true,
+      maxlength: 200,
+    },
+    notes: {
+      type: String,
+      trim: true,
+      maxlength: 500,
     },
   },
   {
@@ -1674,11 +3069,244 @@ const vocabularySchema = new mongoose.Schema(
   }
 );
 
-vocabularySchema.index({ group: 1 });
+vocabCheckSchema.index({ group: 1, homework: 1, date: 1 }, { unique: true });
+vocabCheckSchema.index({ date: 1 });
+vocabCheckSchema.index({ 'records.student': 1 });
+
+module.exports = mongoose.model('VocabCheck', vocabCheckSchema);
+
+
+=========================================
+FILE: src\models\Vocabulary.js
+=========================================
+const mongoose = require('mongoose');
+
+const vocabularyItemSchema = new mongoose.Schema(
+  {
+    word: { type: String, required: true, trim: true, maxlength: 100 },
+    language: { type: String, enum: ['EN', 'UZ'], required: true },
+    translation: { type: String, trim: true, maxlength: 200 },
+    autoTranslation: { type: String, trim: true, maxlength: 200 },
+    editedTranslation: { type: String, trim: true, maxlength: 200 },
+    pronunciation: { type: String, trim: true },
+    example: { type: String, trim: true, maxlength: 300 },
+    imageUrl: { type: String, trim: true },
+  },
+  { _id: true }
+);
+
+const vocabularySchema = new mongoose.Schema(
+  {
+    title: { type: String, required: true, trim: true, maxlength: 200 },
+    description: { type: String, trim: true, maxlength: 500 },
+    topic: { type: String, trim: true, maxlength: 100 },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    items: [vocabularyItemSchema],
+    isDeleted: { type: Boolean, default: false },
+  },
+  { timestamps: true }
+);
+
 vocabularySchema.index({ createdBy: 1 });
+vocabularySchema.index({ isDeleted: 1 });
+vocabularySchema.index({ title: 'text', topic: 'text' });
 
 module.exports = mongoose.model('Vocabulary', vocabularySchema);
 
+
+// const mongoose = require('mongoose');
+
+// const vocabularyItemSchema = new mongoose.Schema(
+//   {
+//     word: {
+//       type: String,
+//       required: true,
+//       trim: true,
+//       maxlength: 100,
+//     },
+//     language: {
+//       type: String,
+//       enum: ['EN', 'UZ'],
+//       required: true,
+//     },
+//     translation: {
+//       type: String,
+//       trim: true,
+//       maxlength: 200,
+//     },
+//     // Auto-translated from mobile, stored here
+//     autoTranslation: {
+//       type: String,
+//       trim: true,
+//       maxlength: 200,
+//     },
+//     // Teacher can override auto-translation
+//     editedTranslation: {
+//       type: String,
+//       trim: true,
+//       maxlength: 200,
+//     },
+//     pronunciation: {
+//       type: String,
+//       trim: true,
+//     },
+//     example: {
+//       type: String,
+//       trim: true,
+//       maxlength: 300,
+//     },
+//     imageUrl: {
+//       type: String,
+//       trim: true,
+//     },
+//   },
+//   { _id: true }
+// );
+
+// const vocabularySchema = new mongoose.Schema(
+//   {
+//     title: {
+//       type: String,
+//       required: true,
+//       trim: true,
+//       maxlength: 200,
+//     },
+//     group: {
+//       type: mongoose.Schema.Types.ObjectId,
+//       ref: 'Group',
+//       required: true,
+//     },
+//     createdBy: {
+//       type: mongoose.Schema.Types.ObjectId,
+//       ref: 'User',
+//       required: true,
+//     },
+//     items: [vocabularyItemSchema],
+//     isDeleted: {
+//       type: Boolean,
+//       default: false,
+//     },
+//   },
+//   {
+//     timestamps: true,
+//   }
+// );
+
+// vocabularySchema.index({ group: 1 });
+// vocabularySchema.index({ createdBy: 1 });
+
+// module.exports = mongoose.model('Vocabulary', vocabularySchema);
+
+
+=========================================
+FILE: src\models\VocabularyAssignment.js
+=========================================
+const mongoose = require('mongoose');
+
+/**
+ * VocabularyAssignment
+ * Bir lug'at ko'p guruhlarga berilishi mumkin.
+ * Bu model qaysi lug'at qaysi guruhga, qachon va kim tomonidan berilganini saqlaydi.
+ */
+const vocabularyAssignmentSchema = new mongoose.Schema(
+  {
+    vocabulary: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Vocabulary',
+      required: true,
+    },
+    group: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Group',
+      required: true,
+    },
+    assignedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    // Topshirish muddati
+    dueDate: {
+      type: Date,
+      default: null,
+    },
+    // Ustoz izohi (bu guruh uchun maxsus)
+    note: {
+      type: String,
+      trim: true,
+      maxlength: 500,
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+  },
+  { timestamps: true }
+);
+
+// Bir lug'at bir guruhga faqat bir marta beriladi
+vocabularyAssignmentSchema.index({ vocabulary: 1, group: 1 }, { unique: true });
+vocabularyAssignmentSchema.index({ group: 1, isActive: 1 });
+vocabularyAssignmentSchema.index({ assignedBy: 1 });
+vocabularyAssignmentSchema.index({ vocabulary: 1 });
+
+module.exports = mongoose.model('VocabularyAssignment', vocabularyAssignmentSchema);
+
+
+=========================================
+FILE: src\models\works.schema.js
+=========================================
+const { Schema, model } = require("mongoose");
+
+const Works = new Schema({
+    work_header_title: {
+        type: String,
+    },
+    work_value: {
+        type: String,
+    },
+},
+{
+    versionKey: false,
+    timestamps: true
+}
+)
+
+const WorksSchema = model("works", Works)
+
+module.exports = WorksSchema
+
+=========================================
+FILE: src\models\work_project.schema.js
+=========================================
+const { Schema, model } = require("mongoose");
+
+const WorkProject = new Schema({
+    work_image: {
+        type: String,
+    },
+    work_content: {
+        type: String,
+    },
+    work_title: {
+        type: String,
+    },
+    work_stack: {
+        type: String,
+    },
+    github_link: {
+        type: String,
+    },
+},
+{
+    versionKey: false,
+    timestamps: true
+}
+)
+
+const WorkProjectSchema = model("workProject", WorkProject)
+
+module.exports = WorkProjectSchema
 
 =========================================
 FILE: src\routes\analytics.routes.js
@@ -1807,6 +3435,48 @@ module.exports = router;
 
 
 =========================================
+FILE: src\routes\cotegory.routes.js
+=========================================
+const {Router} = require("express")
+const { getAllAboutMe, addAboutMe } = require("../controllers/about_me.controller")
+
+const About_Me_Router = Router()
+
+About_Me_Router.get("/get_all_about_me", getAllAboutMe)
+// About_Me_Router.get("/get_one_About_Me_/:id", protocol, getOneAbout_Me_)
+// About_Me_Router.get("/getOneAbout_Me__for_admin_update/:id", authorization, getOneAbout_Me__for_admin_update)
+About_Me_Router.post("/add_about_me", addAboutMe)
+// About_Me_Router.put("/update_About_Me_/:id", About_Me_ValidationMiddleware, authorization, upload.single("file"), updateAbout_Me_)
+// About_Me_Router.delete("/delete_About_Me_/:id", authorization, deleteAbout_Me_)
+// About_Me_Router.put("/All_Updete_Cotegoriys", authorization, AllUpdeteCotegoriys)
+
+module.exports = About_Me_Router
+
+
+
+
+
+
+=========================================
+FILE: src\routes\cv_sertificat.routes.js
+=========================================
+const {Router} = require("express")
+const { getAllCVandSertificat, addCVandSertificat } = require("../controllers/cv_sertificat.controller")
+
+const CVandSertificatRouter = Router()
+
+CVandSertificatRouter.get("/get_all_CVandSertificat", getAllCVandSertificat)
+// CVandSertificatRouter.get("/get_one_CVandSertificat/:id", protocol, getOneCVandSertificat)
+// CVandSertificatRouter.get("/getOneCVandSertificat_for_admin_update/:id", authorization, getOneCVandSertificat_for_admin_update)
+CVandSertificatRouter.post("/add_CVandSertificat", addCVandSertificat)
+// CVandSertificatRouter.put("/update_CVandSertificat/:id", CVandSertificatValidationMiddleware, authorization, upload.single("file"), updateCVandSertificat)
+// CVandSertificatRouter.delete("/delete_CVandSertificat/:id", authorization, deleteCVandSertificat)
+// CVandSertificatRouter.put("/All_Updete_Cotegoriys", authorization, AllUpdeteCotegoriys)
+
+module.exports = CVandSertificatRouter
+
+
+=========================================
 FILE: src\routes\group.routes.js
 =========================================
 const router = require('express').Router();
@@ -1835,21 +3505,21 @@ router.get('/:id', groupController.getGroupById);
 
 router.post(
   '/',
-  authorize(ADMIN, MANAGER),
+  authorize(ADMIN, MANAGER, TEACHER),
   validate(createGroupSchema),
   groupController.createGroup
 );
 
 router.patch(
   '/:id',
-  authorize(ADMIN, MANAGER),
+  authorize(ADMIN, MANAGER, TEACHER),
   validate(updateGroupSchema),
   groupController.updateGroup
 );
 
 router.delete(
   '/:id',
-  authorize(ADMIN, MANAGER),
+  authorize(ADMIN, MANAGER, TEACHER),
   groupController.deleteGroup
 );
 
@@ -1865,6 +3535,13 @@ router.delete(
   '/:id/students/:studentId',
   authorize(ADMIN, MANAGER, TEACHER),
   groupController.removeStudent
+);
+
+// Get vocabulary learning progress stats for a group
+router.get(
+  '/:id/vocabulary-progress',
+  authorize(ADMIN, MANAGER, TEACHER, ASSISTANT),
+  groupController.getGroupVocabularyStats
 );
 
 module.exports = router;
@@ -1946,6 +3623,19 @@ const vocabularyRoutes = require('./vocabulary.routes');
 const submissionRoutes = require('./submission.routes');
 const speakingResultRoutes = require('./speakingResult.routes');
 const analyticsRoutes = require('./analytics.routes');
+const vocabCheckRoutes = require('./vocabCheck.routes');
+
+const About_Me_Router = require("./cotegory.routes")
+const StatistikaRouter = require("./statistika.routes")
+const LearnRouter = require("./learn.routes")
+const CVandSertificatRouter = require("./cv_sertificat.routes")
+const SkillsTitleRouter = require("./skills_title.routes")
+const SkillsRouter = require("./skills.routes")
+const WorksRouter = require("./works.routes")
+const WorkProjectsRouter = require("./work_projects.routes")
+const SetMeRouter = require("./set_me.routes")
+const SetsRouter = require("./sets.routes")
+const studentVocabRoutes = require("./Studentvocab.routes");
 
 router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
@@ -1953,11 +3643,136 @@ router.use('/groups', groupRoutes);
 router.use('/attendance', attendanceRoutes);
 router.use('/homework', homeworkRoutes);
 router.use('/vocabulary', vocabularyRoutes);
+router.use('/vocab-checks', vocabCheckRoutes);
 router.use('/submissions', submissionRoutes);
 router.use('/speaking-results', speakingResultRoutes);
 router.use('/analytics', analyticsRoutes);
+router.use('/student-vocab', studentVocabRoutes);
+
+// router 
+router.use(About_Me_Router)
+router.use(StatistikaRouter)
+router.use(LearnRouter)
+router.use(CVandSertificatRouter)
+router.use(SkillsTitleRouter)
+router.use(SkillsRouter)
+router.use(WorksRouter)
+router.use(WorkProjectsRouter)
+router.use(SetMeRouter)
+router.use(SetsRouter)
 
 module.exports = router;
+
+
+=========================================
+FILE: src\routes\learn.routes.js
+=========================================
+const {Router} = require("express")
+const { getAllLearn, addLearn } = require("../controllers/learn.controller")
+
+const LearnRouter = Router()
+
+LearnRouter.get("/get_all_learn", getAllLearn)
+// LearnRouter.get("/get_one_Learn/:id", protocol, getOneLearn)
+// LearnRouter.get("/getOneLearn_for_admin_update/:id", authorization, getOneLearn_for_admin_update)
+LearnRouter.post("/add_learn", addLearn)
+// LearnRouter.put("/update_Learn/:id", LearnValidationMiddleware, authorization, upload.single("file"), updateLearn)
+// LearnRouter.delete("/delete_Learn/:id", authorization, deleteLearn)
+// LearnRouter.put("/All_Updete_Cotegoriys", authorization, AllUpdeteCotegoriys)
+
+module.exports = LearnRouter
+
+
+=========================================
+FILE: src\routes\sets.routes.js
+=========================================
+const {Router} = require("express")
+const { getAllSets, addSets } = require("../controllers/sets.controller")
+
+const SetsRouter = Router()
+
+SetsRouter.get("/get_all_sets", getAllSets)
+// SetsRouter.get("/get_one_Sets/:id", protocol, getOneSets)
+// SetsRouter.get("/getOneSets_for_admin_update/:id", authorization, getOneSets_for_admin_update)
+SetsRouter.post("/add_sets", addSets)
+// SetsRouter.put("/update_Sets/:id", SetsValidationMiddleware, authorization, upload.single("file"), updateSets)
+// SetsRouter.delete("/delete_Sets/:id", authorization, deleteSets)
+// SetsRouter.put("/All_Updete_Cotegoriys", authorization, AllUpdeteCotegoriys)
+
+module.exports = SetsRouter
+
+
+
+
+
+
+=========================================
+FILE: src\routes\set_me.routes.js
+=========================================
+const {Router} = require("express")
+const { getAllSetMe, addSetMe } = require("../controllers/set_me.controller")
+
+const SetMeRouter = Router()
+
+SetMeRouter.get("/get_all_SetMe", getAllSetMe)
+// SetMeRouter.get("/get_one_SetMe/:id", protocol, getOneSetMe)
+// SetMeRouter.get("/getOneSetMe_for_admin_update/:id", authorization, getOneSetMe_for_admin_update)
+SetMeRouter.post("/add_SetMe", addSetMe)
+// SetMeRouter.put("/update_SetMe/:id", SetMeValidationMiddleware, authorization, upload.single("file"), updateSetMe)
+// SetMeRouter.delete("/delete_SetMe/:id", authorization, deleteSetMe)
+// SetMeRouter.put("/All_Updete_Cotegoriys", authorization, AllUpdeteCotegoriys)
+
+module.exports = SetMeRouter
+
+
+
+
+
+
+=========================================
+FILE: src\routes\skills.routes.js
+=========================================
+const {Router} = require("express")
+const { getAllSkills, addSkills } = require("../controllers/skills.controller")
+
+const SkillsRouter = Router()
+
+SkillsRouter.get("/get_all_skills", getAllSkills)
+// SkillsRouter.get("/get_one_Skills/:id", protocol, getOneSkills)
+// SkillsRouter.get("/getOneSkills_for_admin_update/:id", authorization, getOneSkills_for_admin_update)
+SkillsRouter.post("/add_skills", addSkills)
+// SkillsRouter.put("/update_Skills/:id", SkillsValidationMiddleware, authorization, upload.single("file"), updateSkills)
+// SkillsRouter.delete("/delete_Skills/:id", authorization, deleteSkills)
+// SkillsRouter.put("/All_Updete_Cotegoriys", authorization, AllUpdeteCotegoriys)
+
+module.exports = SkillsRouter
+
+
+
+
+
+
+=========================================
+FILE: src\routes\skills_title.routes.js
+=========================================
+const {Router} = require("express")
+const { getAllSkillsTitle, addSkillsTitle } = require("../controllers/skillls_title.controller")
+
+const SkillsTitleRouter = Router()
+
+SkillsTitleRouter.get("/get_skills_title", getAllSkillsTitle)
+// SkillsTitleRouter.get("/get_one_SkillsTitle/:id", protocol, getOneSkillsTitle)
+// SkillsTitleRouter.get("/getOneSkillsTitle_for_admin_update/:id", authorization, getOneSkillsTitle_for_admin_update)
+SkillsTitleRouter.post("/add_skills_title", addSkillsTitle)
+// SkillsTitleRouter.put("/update_SkillsTitle/:id", SkillsTitleValidationMiddleware, authorization, upload.single("file"), updateSkillsTitle)
+// SkillsTitleRouter.delete("/delete_SkillsTitle/:id", authorization, deleteSkillsTitle)
+// SkillsTitleRouter.put("/All_Updete_Cotegoriys", authorization, AllUpdeteCotegoriys)
+
+module.exports = SkillsTitleRouter
+
+
+
+
 
 
 =========================================
@@ -2016,6 +3831,104 @@ router.patch(
 
 module.exports = router;
 
+
+=========================================
+FILE: src\routes\statistika.routes.js
+=========================================
+const {Router} = require("express")
+const { getAllStatistics, addStatistics } = require("../controllers/statistics.controller")
+
+const StatistikaRouter = Router()
+
+StatistikaRouter.get("/get_all_statistiks", getAllStatistics)
+// StatistikaRouter.get("/get_one_Statistika/:id", protocol, getOneStatistika)
+// StatistikaRouter.get("/getOneStatistika_for_admin_update/:id", authorization, getOneStatistika_for_admin_update)
+StatistikaRouter.post("/add_statistik", addStatistics)
+// StatistikaRouter.put("/update_Statistika/:id", StatistikaValidationMiddleware, authorization, upload.single("file"), updateStatistika)
+// StatistikaRouter.delete("/delete_Statistika/:id", authorization, deleteStatistika)
+// StatistikaRouter.put("/All_Updete_Cotegoriys", authorization, AllUpdeteCotegoriys)
+
+module.exports = StatistikaRouter
+
+
+=========================================
+FILE: src\routes\Studentvocab.routes.js
+=========================================
+const router = require('express').Router();
+const ctrl = require("../controllers/Studentvocab.controller");
+const { authenticate, authorize } = require('../middlewares/auth.middleware');
+const { validate } = require('../middlewares/validate.middleware');
+const {
+  submitReviewSchema,
+  addFromVocabSchema,
+  addFromVocabCheckSchema,
+  getAllWordsQuerySchema,
+} = require('../validators/studentVocab.validator');
+const { ROLES } = require('../config/constants');
+
+const { ADMIN, MANAGER, TEACHER, ASSISTANT, STUDENT } = ROLES;
+
+router.use(authenticate);
+
+// ── O'quvchi uchun endpointlar ─────────────────────────────────────────────
+
+// Bugun takrorlanishi kerak so'zlar
+router.get('/due', authorize(STUDENT), ctrl.getDueWords);
+
+// Statistika
+router.get('/stats', authorize(STUDENT), ctrl.getMyStats);
+
+// Barcha so'zlar (sahifalab)
+router.get(
+  '/words',
+  authorize(STUDENT),
+  validate(getAllWordsQuerySchema, 'query'),
+  ctrl.getAllWords
+);
+
+// O'rganib javob berish (SM-2 yangilanadi)
+router.post(
+  '/review',
+  authorize(STUDENT),
+  validate(submitReviewSchema),
+  ctrl.submitReview
+);
+
+// ── O'qituvchi / Assistant uchun ─────────────────────────────────────────
+
+// Lug'atni o'quvchilar bazasiga qo'shish
+router.post(
+  '/add-from-vocab/:vocabularyId',
+  authorize(TEACHER, ASSISTANT, ADMIN, MANAGER),
+  validate(addFromVocabSchema),
+  ctrl.addFromVocabulary
+);
+
+// VocabCheck natijalaridan so'z qo'shish
+router.post(
+  '/from-vocabcheck',
+  authorize(TEACHER, ASSISTANT, ADMIN, MANAGER),
+  validate(addFromVocabCheckSchema),
+  ctrl.addFromVocabCheck
+);
+
+// Guruh statistikasi
+router.get(
+  '/group-stats',
+  authorize(TEACHER, ASSISTANT, ADMIN, MANAGER),
+  ctrl.getGroupStats
+);
+
+// ── Admin uchun ──────────────────────────────────────────────────────────
+
+// O'quvchi lug'at bazasini tozalash
+router.delete(
+  '/:studentId/reset',
+  authorize(ADMIN, MANAGER),
+  ctrl.resetStudentVocab
+);
+
+module.exports = router;
 
 =========================================
 FILE: src\routes\submission.routes.js
@@ -2140,6 +4053,33 @@ module.exports = router;
 
 
 =========================================
+FILE: src\routes\vocabCheck.routes.js
+=========================================
+const router = require('express').Router();
+const vocabCheckController = require('../controllers/vocabCheck.controller');
+const { authenticate, authorize } = require('../middlewares/auth.middleware');
+const { ROLES } = require('../config/constants');
+
+router.use(authenticate);
+
+// Get a specific day's records for a group
+router.get(
+  '/groups/:groupId',
+  authorize(ROLES.ADMIN, ROLES.MANAGER, ROLES.TEACHER, ROLES.ASSISTANT),
+  vocabCheckController.getGroupVocabCheck
+);
+
+// Submit logic (creating or updating records)
+router.post(
+  '/',
+  authorize(ROLES.ADMIN, ROLES.MANAGER, ROLES.TEACHER, ROLES.ASSISTANT),
+  vocabCheckController.markVocabCheck
+);
+
+module.exports = router;
+
+
+=========================================
 FILE: src\routes\vocabulary.routes.js
 =========================================
 const router = require('express').Router();
@@ -2150,6 +4090,7 @@ const {
   createVocabularySchema,
   updateVocabularySchema,
   updateTranslationSchema,
+  assignToGroupSchema,
 } = require('../validators/vocabulary.validator');
 const { ROLES } = require('../config/constants');
 
@@ -2157,39 +4098,130 @@ const { ADMIN, MANAGER, TEACHER, ASSISTANT, STUDENT } = ROLES;
 
 router.use(authenticate);
 
+// ── Lug'atlar (global, guruhsiz) ─────────────────────────────────────────────
 router.get('/', vocabularyController.getVocabularies);
-
 router.get('/:id', vocabularyController.getVocabularyById);
+router.get('/:id/groups', authorize(ADMIN, MANAGER, TEACHER, ASSISTANT), vocabularyController.getVocabularyGroups);
 
-router.post(
-  '/',
+router.post('/', authorize(TEACHER, ASSISTANT, ADMIN, MANAGER), validate(createVocabularySchema), vocabularyController.createVocabulary);
+router.patch('/:id', authorize(TEACHER, ASSISTANT, ADMIN, MANAGER), validate(updateVocabularySchema), vocabularyController.updateVocabulary);
+router.patch('/:id/translation', authorize(TEACHER, ASSISTANT, ADMIN, MANAGER), validate(updateTranslationSchema), vocabularyController.updateItemTranslation);
+router.delete('/:id', authorize(TEACHER, ADMIN, MANAGER), vocabularyController.deleteVocabulary);
+
+// ── Assignment (guruhga berish) ──────────────────────────────────────────────
+// Guruhning lug'atlari
+router.get('/group/:groupId', vocabularyController.getGroupVocabularies);
+
+// Guruhga lug'at berish
+router.post('/:id/assign/:groupId',
   authorize(TEACHER, ASSISTANT, ADMIN, MANAGER),
-  validate(createVocabularySchema),
-  vocabularyController.createVocabulary
+  validate(assignToGroupSchema),
+  vocabularyController.assignToGroup
 );
 
-router.patch(
-  '/:id',
-  authorize(TEACHER, ASSISTANT, ADMIN, MANAGER),
-  validate(updateVocabularySchema),
-  vocabularyController.updateVocabulary
-);
-
-// Update a single word's translation
-router.patch(
-  '/:id/translation',
-  authorize(TEACHER, ASSISTANT, ADMIN, MANAGER),
-  validate(updateTranslationSchema),
-  vocabularyController.updateItemTranslation
-);
-
-router.delete(
-  '/:id',
+// Guruhdan lug'at olib tashlash
+router.delete('/:id/assign/:groupId',
   authorize(TEACHER, ADMIN, MANAGER),
-  vocabularyController.deleteVocabulary
+  vocabularyController.removeFromGroup
 );
 
 module.exports = router;
+
+
+// const router = require('express').Router();
+// const vocabularyController = require('../controllers/vocabulary.controller');
+// const { authenticate, authorize } = require('../middlewares/auth.middleware');
+// const { validate } = require('../middlewares/validate.middleware');
+// const {
+//   createVocabularySchema,
+//   updateVocabularySchema,
+//   updateTranslationSchema,
+// } = require('../validators/vocabulary.validator');
+// const { ROLES } = require('../config/constants');
+
+// const { ADMIN, MANAGER, TEACHER, ASSISTANT, STUDENT } = ROLES;
+
+// router.use(authenticate);
+
+// router.get('/', vocabularyController.getVocabularies);
+
+// router.get('/:id', vocabularyController.getVocabularyById);
+
+// router.post(
+//   '/',
+//   authorize(TEACHER, ASSISTANT, ADMIN, MANAGER),
+//   validate(createVocabularySchema),
+//   vocabularyController.createVocabulary
+// );
+
+// router.patch(
+//   '/:id',
+//   authorize(TEACHER, ASSISTANT, ADMIN, MANAGER),
+//   validate(updateVocabularySchema),
+//   vocabularyController.updateVocabulary
+// );
+
+// // Update a single word's translation
+// router.patch(
+//   '/:id/translation',
+//   authorize(TEACHER, ASSISTANT, ADMIN, MANAGER),
+//   validate(updateTranslationSchema),
+//   vocabularyController.updateItemTranslation
+// );
+
+// router.delete(
+//   '/:id',
+//   authorize(TEACHER, ADMIN, MANAGER),
+//   vocabularyController.deleteVocabulary
+// );
+
+// module.exports = router;
+
+
+=========================================
+FILE: src\routes\works.routes.js
+=========================================
+const {Router} = require("express")
+const { getAllWorks, addWorks } = require("../controllers/works.controller")
+
+const WorksRouter = Router()
+
+WorksRouter.get("/get_all_works", getAllWorks)
+// WorksRouter.get("/get_one_Works/:id", protocol, getOneWorks)
+// WorksRouter.get("/getOneWorks_for_admin_update/:id", authorization, getOneWorks_for_admin_update)
+WorksRouter.post("/add_works", addWorks)
+// WorksRouter.put("/update_Works/:id", WorksValidationMiddleware, authorization, upload.single("file"), updateWorks)
+// WorksRouter.delete("/delete_Works/:id", authorization, deleteWorks)
+// WorksRouter.put("/All_Updete_Cotegoriys", authorization, AllUpdeteCotegoriys)
+
+module.exports = WorksRouter
+
+
+
+
+
+
+=========================================
+FILE: src\routes\work_projects.routes.js
+=========================================
+const {Router} = require("express")
+const { getAllWorksProjects, addWorksProjects } = require("../controllers/work_projects.controller")
+
+const WorkProjectsRouter = Router()
+
+WorkProjectsRouter.get("/get_all_WorkProjects", getAllWorksProjects)
+// WorkProjectsRouter.get("/get_one_WorkProjects/:id", protocol, getOneWorkProjects)
+// WorkProjectsRouter.get("/getOneWorkProjects_for_admin_update/:id", authorization, getOneWorkProjects_for_admin_update)
+WorkProjectsRouter.post("/add_WorkProjects", addWorksProjects)
+// WorkProjectsRouter.put("/update_WorkProjects/:id", WorkProjectsValidationMiddleware, authorization, upload.single("file"), updateWorkProjects)
+// WorkProjectsRouter.delete("/delete_WorkProjects/:id", authorization, deleteWorkProjects)
+// WorkProjectsRouter.put("/All_Updete_Cotegoriys", authorization, AllUpdeteCotegoriys)
+
+module.exports = WorkProjectsRouter
+
+
+
+
 
 
 =========================================
@@ -2758,8 +4790,11 @@ class GroupService {
   }
 
   async createGroup(data, creatingUser) {
+    
     // Verify teacher exists and has correct role
     const teacher = await User.findOne({ _id: data.teacher, role: ROLES.TEACHER, isDeleted: false });
+    console.log(teacher);
+    
     if (!teacher) throw new NotFoundError('Teacher');
 
     if (data.assistant) {
@@ -2886,6 +4921,79 @@ class GroupService {
       resourceId: group._id,
     });
   }
+  async getGroupVocabularyStats(id, requestingUser) {
+    const group = await Group.findOne({ _id: id, isDeleted: false })
+      .populate('students', 'firstName lastName');
+    if (!group) throw new NotFoundError('Group');
+
+    // Faqat tegishli ustoz va yordamchilar kirishi mumkin
+    if (requestingUser.role === ROLES.TEACHER && group.teacher.toString() !== requestingUser._id.toString()) {
+      throw new AppError("Ushbu guruhga kirish huquqingiz yo'q", 403);
+    }
+    if (requestingUser.role === ROLES.ASSISTANT && group.assistant?.toString() !== requestingUser._id.toString()) {
+      throw new AppError("Ushbu guruhga kirish huquqingiz yo'q", 403);
+    }
+
+    const Homework = require('../models/Homework');
+    const Submission = require('../models/Submission');
+    const { HOMEWORK_TYPES, SUBMISSION_STATUS } = require('../config/constants');
+    
+    // Guruhga berilgan barcha VOCABULARY uyga vazifalari
+    const vocabHomeworks = await Homework.find({
+      group: id,
+      type: HOMEWORK_TYPES.VOCABULARY,
+      isDeleted: false,
+      isPublished: true
+    }).populate('vocabulary', 'title items');
+
+    const totalVocabs = vocabHomeworks.reduce((sum, hw) => sum + (hw.vocabulary?.items?.length || 0), 0);
+    const totalAssignments = vocabHomeworks.length;
+
+    const stats = [];
+    
+    for (const student of group.students) {
+      // Shu o'quvchining barcha lug'at topshiriqlari natijalari
+      const submissions = await Submission.find({
+        group: id,
+        student: student._id,
+        homework: { $in: vocabHomeworks.map(h => h._id) },
+        status: { $in: [SUBMISSION_STATUS.SUBMITTED, SUBMISSION_STATUS.APPROVED, SUBMISSION_STATUS.REVIEWED] }
+      });
+
+      let learnedWords = 0;
+      let completedAssignments = 0;
+
+      const breakdown = vocabHomeworks.map(hw => {
+        const sub = submissions.find(s => s.homework.toString() === hw._id.toString());
+        const isCompleted = !!sub;
+        if (isCompleted) {
+          completedAssignments++;
+          learnedWords += sub.vocabularyAnswers?.filter(v => v.isCorrect)?.length || 0;
+        }
+        return {
+          homeworkId: hw._id,
+          title: hw.vocabulary?.title || hw.title,
+          wordCount: hw.vocabulary?.items?.length || 0,
+          isCompleted,
+          score: sub ? (sub.score || 0) : 0,
+        };
+      });
+
+      stats.push({
+        studentId: student._id,
+        firstName: student.firstName,
+        lastName: student.lastName,
+        totalAssignments,
+        completedAssignments,
+        totalWords: totalVocabs,
+        learnedWords,
+        progressPct: totalAssignments > 0 ? Math.round((completedAssignments / totalAssignments) * 100) : 0,
+        breakdown,
+      });
+    }
+
+    return stats;
+  }
 }
 
 module.exports = new GroupService();
@@ -2932,7 +5040,7 @@ class HomeworkService {
       Homework.find(filter)
         .populate('group', 'name level')
         .populate('createdBy', 'firstName lastName')
-        .populate('vocabulary', 'title')
+        .populate({ path: 'vocabulary', select: 'title items' })
         .sort(sortObj)
         .skip(skip)
         .limit(limit)
@@ -2967,7 +5075,11 @@ class HomeworkService {
   }
 
   async createHomework(data, creatingUser) {
-    const group = await Group.findOne({ _id: data.group, isDeleted: false });
+    // Object kelsa _id ni olamiz, string kelsa o'zini ishlatamiz
+    const groupId = data.group?._id ?? data.group;
+    const vocabularyId = data.vocabulary?._id ?? data.vocabulary ?? null;
+
+    const group = await Group.findOne({ _id: groupId, isDeleted: false });
     if (!group) throw new NotFoundError('Group');
 
     if (data.type === HOMEWORK_TYPES.URL && !data.resourceUrl) {
@@ -2976,11 +5088,16 @@ class HomeworkService {
     if (data.type === HOMEWORK_TYPES.TEXT && !data.textContent) {
       throw new AppError('Text content is required for TEXT homework', 400);
     }
-    if (data.type === HOMEWORK_TYPES.VOCABULARY && !data.vocabulary) {
+    if (data.type === HOMEWORK_TYPES.VOCABULARY && !vocabularyId) {
       throw new AppError('Vocabulary list is required for VOCABULARY homework', 400);
     }
 
-    const homework = await Homework.create({ ...data, createdBy: creatingUser._id });
+    const homework = await Homework.create({
+      ...data,
+      group: groupId,
+      vocabulary: vocabularyId,
+      createdBy: creatingUser._id,
+    });
 
     await audit({
       userId: creatingUser._id,
@@ -3058,6 +5175,174 @@ class HomeworkService {
 }
 
 module.exports = new HomeworkService();
+
+
+// const Homework = require('../models/Homework');
+// const Group = require('../models/Group');
+// const Submission = require('../models/Submission');
+// const { NotFoundError, AppError } = require('../utils/AppError');
+// const { parsePagination, parseSort } = require('../utils/pagination');
+// const { buildPaginationMeta } = require('../utils/response');
+// const { HOMEWORK_TYPES, ROLES } = require('../config/constants');
+// const { audit, ACTIONS } = require('../utils/auditLog');
+
+// class HomeworkService {
+//   async getHomework(query, requestingUser) {
+//     const { group, type, isPublished, dueBefore, dueAfter, sort } = query;
+//     const { page, limit, skip } = parsePagination(query);
+
+//     const filter = { isDeleted: false };
+
+//     if (requestingUser.role === ROLES.STUDENT) {
+//       // Students only see published homework for their groups
+//       filter.isPublished = true;
+//       filter.group = { $in: requestingUser.groups };
+//     } else {
+//       if (group) filter.group = group;
+//       if (typeof isPublished === 'boolean') filter.isPublished = isPublished;
+//     }
+
+//     if (type) filter.type = type;
+//     if (dueBefore || dueAfter) {
+//       filter.dueDate = {};
+//       if (dueAfter) filter.dueDate.$gte = new Date(dueAfter);
+//       if (dueBefore) filter.dueDate.$lte = new Date(dueBefore);
+//     }
+
+//     const sortObj = parseSort(sort, { dueDate: 1 });
+
+//     const [homework, total] = await Promise.all([
+//       Homework.find(filter)
+//         .populate('group', 'name level')
+//         .populate('createdBy', 'firstName lastName')
+//         .populate('vocabulary', 'title')
+//         .sort(sortObj)
+//         .skip(skip)
+//         .limit(limit)
+//         .lean(),
+//       Homework.countDocuments(filter),
+//     ]);
+
+//     return { homework, meta: buildPaginationMeta(total, page, limit) };
+//   }
+
+//   async getHomeworkById(id, requestingUser) {
+//     const homework = await Homework.findOne({ _id: id, isDeleted: false })
+//       .populate('group', 'name level teacher assistant students')
+//       .populate('createdBy', 'firstName lastName')
+//       .populate({
+//         path: 'vocabulary',
+//         populate: { path: 'items' },
+//       });
+
+//     if (!homework) throw new NotFoundError('Homework');
+
+//     // Students can only view published homework in their groups
+//     if (requestingUser.role === ROLES.STUDENT) {
+//       if (!homework.isPublished) throw new NotFoundError('Homework');
+//       const inGroup = requestingUser.groups.some(
+//         (g) => g.toString() === homework.group._id.toString()
+//       );
+//       if (!inGroup) throw new NotFoundError('Homework');
+//     }
+
+//     return homework;
+//   }
+
+//   async createHomework(data, creatingUser) {
+//     console.log(data);
+    
+//     const group = await Group.findOne({ _id: data.group, isDeleted: false });
+//     if (!group) throw new NotFoundError('Group');
+
+//     if (data.type === HOMEWORK_TYPES.URL && !data.resourceUrl) {
+//       throw new AppError('Resource URL is required for URL homework', 400);
+//     }
+//     if (data.type === HOMEWORK_TYPES.TEXT && !data.textContent) {
+//       throw new AppError('Text content is required for TEXT homework', 400);
+//     }
+//     if (data.type === HOMEWORK_TYPES.VOCABULARY && !data.vocabulary) {
+//       throw new AppError('Vocabulary list is required for VOCABULARY homework', 400);
+//     }
+
+//     const homework = await Homework.create({ ...data, createdBy: creatingUser._id });
+
+//     await audit({
+//       userId: creatingUser._id,
+//       action: ACTIONS.CREATE,
+//       resource: 'Homework',
+//       resourceId: homework._id,
+//       details: { type: homework.type, group: homework.group },
+//     });
+
+//     return homework;
+//   }
+
+//   async updateHomework(id, data, updatingUser) {
+//     const homework = await Homework.findOne({ _id: id, isDeleted: false });
+//     if (!homework) throw new NotFoundError('Homework');
+
+//     Object.assign(homework, data);
+//     await homework.save();
+
+//     await audit({
+//       userId: updatingUser._id,
+//       action: ACTIONS.UPDATE,
+//       resource: 'Homework',
+//       resourceId: homework._id,
+//     });
+
+//     return homework;
+//   }
+
+//   async publishHomework(id, updatingUser) {
+//     const homework = await Homework.findOne({ _id: id, isDeleted: false });
+//     if (!homework) throw new NotFoundError('Homework');
+
+//     homework.isPublished = true;
+//     await homework.save();
+
+//     await audit({
+//       userId: updatingUser._id,
+//       action: ACTIONS.UPDATE,
+//       resource: 'Homework',
+//       resourceId: homework._id,
+//       details: { published: true },
+//     });
+
+//     return homework;
+//   }
+
+//   async softDeleteHomework(id, deletingUser) {
+//     const homework = await Homework.findOne({ _id: id, isDeleted: false });
+//     if (!homework) throw new NotFoundError('Homework');
+
+//     homework.isDeleted = true;
+//     homework.deletedAt = new Date();
+//     await homework.save();
+
+//     await audit({
+//       userId: deletingUser._id,
+//       action: ACTIONS.DELETE,
+//       resource: 'Homework',
+//       resourceId: homework._id,
+//     });
+//   }
+
+//   async getHomeworkStats(groupId) {
+//     const [total, published, byType] = await Promise.all([
+//       Homework.countDocuments({ group: groupId, isDeleted: false }),
+//       Homework.countDocuments({ group: groupId, isDeleted: false, isPublished: true }),
+//       Homework.aggregate([
+//         { $match: { group: require('mongoose').Types.ObjectId.createFromHexString(groupId), isDeleted: false } },
+//         { $group: { _id: '$type', count: { $sum: 1 } } },
+//       ]),
+//     ]);
+//     return { total, published, byType };
+//   }
+// }
+
+// module.exports = new HomeworkService();
 
 
 =========================================
@@ -3251,6 +5536,263 @@ class SpeakingResultService {
 
 module.exports = new SpeakingResultService();
 
+
+=========================================
+FILE: src\services\studentVocab.service.js
+=========================================
+const StudentVocab = require('../models/StudentVocab');
+const Vocabulary = require('../models/Vocabulary');
+const { NotFoundError, AppError } = require('../utils/AppError');
+const { computeNextState, computeStats } = require('../utils/sm2');
+
+class StudentVocabService {
+
+  // ── 1. O'quvchining lug'at bazasini olish ─────────────────────────────────
+  // Render uchun optimallashtirilgan:
+  // - Faqat dueToday so'zlarni qaytaramiz (barchasi emas!)
+  // - Frontend qolgan barcha so'zlarni alohida so'raydi
+  async getDueWords(studentId) {
+    const now = new Date();
+
+    const doc = await StudentVocab.findOne({ student: studentId })
+      .select('words stats lastStudiedAt')
+      .lean();
+
+    if (!doc) {
+      return { words: [], stats: { total: 0, mastered: 0, learning: 0, newWords: 0, dueToday: 0 } };
+    }
+
+    // Faqat bugun takrorlanishi kerak bo'lganlar
+    const dueWords = doc.words.filter(
+      (w) => w.status !== 'mastered' && new Date(w.nextReviewAt) <= now
+    );
+
+    // Aralashtirib yuborish (random tartib)
+    const shuffled = dueWords.sort(() => Math.random() - 0.5);
+
+    return {
+      words: shuffled,
+      stats: doc.stats,
+      lastStudiedAt: doc.lastStudiedAt,
+    };
+  }
+
+  // ── 2. Statistika olish ────────────────────────────────────────────────────
+  async getStats(studentId) {
+    const doc = await StudentVocab.findOne({ student: studentId })
+      .select('stats lastStudiedAt')
+      .lean();
+
+    if (!doc) {
+      return { total: 0, mastered: 0, learning: 0, newWords: 0, dueToday: 0 };
+    }
+
+    return { stats: doc.stats, lastStudiedAt: doc.lastStudiedAt };
+  }
+
+  // ── 3. Barcha so'zlar (sahifalab) ─────────────────────────────────────────
+  async getAllWords(studentId, query = {}) {
+    const { status, page = 1, limit = 30 } = query;
+    const skip = (page - 1) * limit;
+
+    const doc = await StudentVocab.findOne({ student: studentId })
+      .select('words stats')
+      .lean();
+
+    if (!doc) return { words: [], total: 0, stats: {} };
+
+    let words = doc.words;
+
+    // Status bo'yicha filter
+    if (status) {
+      words = words.filter((w) => w.status === status);
+    }
+
+    const total = words.length;
+
+    // nextReviewAt bo'yicha sort (eng yaqini avval)
+    words = words
+      .sort((a, b) => new Date(a.nextReviewAt) - new Date(b.nextReviewAt))
+      .slice(skip, skip + parseInt(limit));
+
+    return { words, total, stats: doc.stats };
+  }
+
+  // ── 4. Yangi so'zlarni bazaga qo'shish ────────────────────────────────────
+  // Bu yerda 3 xil holat bor:
+  //   a) Teacher/Assistant lug'at yaratganda (vocabularyId bilan)
+  //   b) VocabCheck da noto'g'ri bo'lgan so'zlar avtomatik qo'shilganda
+  //   c) O'quvchi o'zi qo'shganda (kelajak uchun)
+  async addWordsFromVocabulary(studentId, vocabularyId) {
+    const vocab = await Vocabulary.findOne({ _id: vocabularyId, isDeleted: false }).lean();
+    if (!vocab) throw new NotFoundError('Vocabulary');
+
+    let doc = await StudentVocab.findOne({ student: studentId });
+
+    if (!doc) {
+      doc = new StudentVocab({ student: studentId, words: [] });
+    }
+
+    // Allaqachon mavjud so'zlarni tekshirish (duplicate oldini olish)
+    const existingIds = new Set(
+      doc.words.map((w) => w.vocabularyItemId.toString())
+    );
+
+    let addedCount = 0;
+
+    for (const item of vocab.items) {
+      if (existingIds.has(item._id.toString())) continue;
+
+      doc.words.push({
+        vocabularyItemId: item._id,
+        word: item.word,
+        translation: item.translation || item.autoTranslation || '',
+        language: item.language,
+        vocabularyId: vocab._id,
+        stage: 0,
+        consecutiveCorrect: 0,
+        totalReviews: 0,
+        totalCorrect: 0,
+        nextReviewAt: new Date(), // bugundan boshlanadi
+        lastReviewedAt: null,
+        status: 'new',
+      });
+
+      addedCount++;
+    }
+
+    // Statistikani yangilash
+    doc.stats = computeStats(doc.words);
+
+    await doc.save();
+
+    return { addedCount, total: doc.words.length };
+  }
+
+  // ── 5. VocabCheck natijalaridan so'z qo'shish (noto'g'rilarni) ─────────────
+  // Assistant lug'at so'raganda → bilmaganlar avtomatik bazaga tushadi
+  async addFromVocabCheckResult(studentId, wordResults) {
+    // wordResults = [{ vocabularyItemId, word, translation, language, vocabularyId, isCorrect }]
+
+    let doc = await StudentVocab.findOne({ student: studentId });
+    if (!doc) {
+      doc = new StudentVocab({ student: studentId, words: [] });
+    }
+
+    const existingMap = new Map(
+      doc.words.map((w, idx) => [w.vocabularyItemId.toString(), idx])
+    );
+
+    for (const result of wordResults) {
+      const idStr = result.vocabularyItemId.toString();
+      const existingIdx = existingMap.get(idStr);
+
+      if (existingIdx !== undefined) {
+        // Mavjud so'z → SM-2 algoritmini ishlatish
+        const current = doc.words[existingIdx];
+        const updates = computeNextState(current, result.isCorrect);
+        Object.assign(doc.words[existingIdx], updates);
+      } else {
+        // Yangi so'z → bazaga qo'shish
+        // To'g'ri bilgan bo'lsa stage=1 (1 kundan keyin), bilmasa stage=0 (bugun)
+        const initialStage = result.isCorrect ? 1 : 0;
+        const nextReview = new Date();
+        if (result.isCorrect) nextReview.setDate(nextReview.getDate() + 1);
+
+        doc.words.push({
+          vocabularyItemId: result.vocabularyItemId,
+          word: result.word,
+          translation: result.translation || '',
+          language: result.language || 'EN',
+          vocabularyId: result.vocabularyId,
+          stage: initialStage,
+          consecutiveCorrect: result.isCorrect ? 1 : 0,
+          totalReviews: 1,
+          totalCorrect: result.isCorrect ? 1 : 0,
+          nextReviewAt: nextReview,
+          lastReviewedAt: new Date(),
+          status: initialStage === 0 ? 'new' : 'learning',
+        });
+      }
+    }
+
+    doc.stats = computeStats(doc.words);
+    doc.lastStudiedAt = new Date();
+    await doc.save();
+
+    return { updated: doc.words.length };
+  }
+
+  // ── 6. O'quvchi o'rganib javob berdi ─────────────────────────────────────
+  // Frontend dan: [{ vocabularyItemId, isCorrect }] massivi keladi
+  // Bitta session da bir nechta so'z tekshiriladi
+  async submitReview(studentId, reviews) {
+    // reviews = [{ vocabularyItemId: '...', isCorrect: true/false }]
+
+    if (!reviews || reviews.length === 0) {
+      throw new AppError('reviews massivi bo\'sh', 400);
+    }
+
+    const doc = await StudentVocab.findOne({ student: studentId });
+    if (!doc) throw new NotFoundError('StudentVocab');
+
+    const wordMap = new Map(
+      doc.words.map((w, idx) => [w.vocabularyItemId.toString(), idx])
+    );
+
+    const results = [];
+
+    for (const review of reviews) {
+      const idx = wordMap.get(review.vocabularyItemId.toString());
+      if (idx === undefined) continue;
+
+      const current = doc.words[idx];
+      const updates = computeNextState(current, review.isCorrect);
+      Object.assign(doc.words[idx], updates);
+
+      results.push({
+        vocabularyItemId: review.vocabularyItemId,
+        word: current.word,
+        isCorrect: review.isCorrect,
+        newStage: updates.stage,
+        newStatus: updates.status,
+        nextReviewAt: updates.nextReviewAt,
+      });
+    }
+
+    doc.stats = computeStats(doc.words);
+    doc.lastStudiedAt = new Date();
+    await doc.save();
+
+    return {
+      reviewed: results.length,
+      results,
+      stats: doc.stats,
+    };
+  }
+
+  // ── 7. Guruh o'quvchilari uchun umumiy statistika (o'qituvchi uchun) ───────
+  async getGroupStats(studentIds) {
+    const docs = await StudentVocab.find(
+      { student: { $in: studentIds } },
+      { student: 1, stats: 1, lastStudiedAt: 1 }
+    ).lean();
+
+    return docs.map((d) => ({
+      studentId: d.student,
+      stats: d.stats,
+      lastStudiedAt: d.lastStudiedAt,
+    }));
+  }
+
+  // ── 8. O'quvchi lug'at bazasini tozalash (admin) ──────────────────────────
+  async resetStudentVocab(studentId) {
+    await StudentVocab.deleteOne({ student: studentId });
+    return { success: true };
+  }
+}
+
+module.exports = new StudentVocabService();
 
 =========================================
 FILE: src\services\submission.service.js
@@ -3566,26 +6108,239 @@ module.exports = new UserService();
 
 
 =========================================
+FILE: src\services\vocabCheck.service.js
+=========================================
+const VocabCheck = require('../models/VocabCheck');
+const Vocabulary = require('../models/Vocabulary');
+const Group = require('../models/Group');
+const { AppError } = require('../utils/AppError');
+const { ROLES } = require('../config/constants');
+const studentVocabService = require('./studentVocab.service');
+
+class VocabCheckService {
+  async getGroupVocabCheck(groupId, homeworkId, date, requestingUser) {
+    const group = await Group.findOne({ _id: groupId, isDeleted: false });
+    if (!group) throw new AppError('Group not found', 404);
+
+    if (requestingUser.role === ROLES.TEACHER && group.teacher.toString() !== requestingUser._id.toString()) {
+      throw new AppError('Unauthorized access to this group', 403);
+    }
+    if (requestingUser.role === ROLES.ASSISTANT && group.assistant?.toString() !== requestingUser._id.toString()) {
+      throw new AppError('Unauthorized access to this group', 403);
+    }
+
+    const targetDate = new Date(date);
+    const startOfDay = new Date(targetDate.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(targetDate.setHours(23, 59, 59, 999));
+
+    return await VocabCheck.findOne({
+      group: groupId,
+      homework: homeworkId,
+      date: { $gte: startOfDay, $lte: endOfDay },
+    });
+  }
+
+  async markVocabCheck(data, requestingUser) {
+    const { group: groupId, homework: homeworkId, date, records, topic } = data;
+
+    const group = await Group.findOne({ _id: groupId, isDeleted: false });
+    if (!group) throw new AppError('Group not found', 404);
+
+    if (requestingUser.role === ROLES.TEACHER && group.teacher.toString() !== requestingUser._id.toString()) {
+      throw new AppError('Unauthorized access to this group', 403);
+    }
+    if (requestingUser.role === ROLES.ASSISTANT && group.assistant?.toString() !== requestingUser._id.toString()) {
+      throw new AppError('Unauthorized access to this group', 403);
+    }
+
+    const targetDate = new Date(date);
+    const startOfDay = new Date(new Date(targetDate).setHours(0, 0, 0, 0));
+    const endOfDay = new Date(new Date(targetDate).setHours(23, 59, 59, 999));
+
+    let check = await VocabCheck.findOne({
+      group: groupId,
+      homework: homeworkId,
+      date: { $gte: startOfDay, $lte: endOfDay },
+    });
+
+    if (check) {
+      check.records = records;
+      check.topic = topic || check.topic;
+      check.updatedBy = requestingUser._id;
+      await check.save();
+    } else {
+      check = await VocabCheck.create({
+        group: groupId,
+        homework: homeworkId,
+        date: startOfDay,
+        records,
+        topic,
+        markedBy: requestingUser._id,
+      });
+    }
+
+    // ── StudentVocab ga avtomatik sync ─────────────────────────────────────
+    // VocabCheck saqlangandan keyin, natijalarni o'quvchilarning
+    // shaxsiy lug'at bazasiga yozamiz (SM-2 algoritmi bilan)
+    try {
+      await this._syncToStudentVocab(check, homeworkId);
+    } catch (err) {
+      // Sync muvaffaqiyatsiz bo'lsa ham vocabCheck saqlanib qoladi
+      // Log qilib o'tamiz
+      console.error('[StudentVocab sync xatosi]', err.message);
+    }
+
+    return check;
+  }
+
+  // ── Ichki metod: VocabCheck → StudentVocab ─────────────────────────────────
+  async _syncToStudentVocab(vocabCheck, homeworkId) {
+    if (!vocabCheck.records || vocabCheck.records.length === 0) return;
+
+    // Homework dan vocabulary ni olamiz
+    const Homework = require('../models/Homework');
+    const hw = await Homework.findById(homeworkId).select('vocabulary').lean();
+    if (!hw?.vocabulary) return;
+
+    // Vocabulary items ni olamiz
+    const vocab = await Vocabulary.findOne({
+      _id: hw.vocabulary,
+      isDeleted: false,
+    }).lean();
+    if (!vocab) return;
+
+    // Items ni tezkor qidirish uchun map
+    const itemMap = new Map(
+      vocab.items.map((item) => [item._id.toString(), item])
+    );
+
+    // Har bir o'quvchi uchun
+    for (const record of vocabCheck.records) {
+      if (!record.student || !record.wordChecks?.length) continue;
+
+      const wordResults = record.wordChecks.map((wc) => {
+        const vocabItem = itemMap.get(wc.wordId.toString());
+        return {
+          vocabularyItemId: wc.wordId,
+          vocabularyId: vocab._id,
+          word: wc.word,
+          translation:
+            vocabItem?.translation ||
+            vocabItem?.autoTranslation ||
+            '',
+          language: vocabItem?.language || 'EN',
+          isCorrect: wc.isFound,
+        };
+      });
+
+      await studentVocabService.addFromVocabCheckResult(
+        record.student.toString(),
+        wordResults
+      );
+    }
+  }
+}
+
+module.exports = new VocabCheckService();
+
+// const VocabCheck = require('../models/VocabCheck');
+// const Group = require('../models/Group');
+// const { AppError } = require('../utils/AppError');
+// const { ROLES } = require('../config/constants');
+
+// class VocabCheckService {
+//   async getGroupVocabCheck(groupId, homeworkId, date, requestingUser) {
+//     const group = await Group.findOne({ _id: groupId, isDeleted: false });
+//     if (!group) throw new AppError('Group not found', 404);
+
+//     if (requestingUser.role === ROLES.TEACHER && group.teacher.toString() !== requestingUser._id.toString()) {
+//       throw new AppError('Unauthorized access to this group', 403);
+//     }
+//     if (requestingUser.role === ROLES.ASSISTANT && group.assistant?.toString() !== requestingUser._id.toString()) {
+//       throw new AppError('Unauthorized access to this group', 403);
+//     }
+
+//     const targetDate = new Date(date);
+//     const startOfDay = new Date(targetDate.setHours(0, 0, 0, 0));
+//     const endOfDay = new Date(targetDate.setHours(23, 59, 59, 999));
+
+//     return await VocabCheck.findOne({
+//       group: groupId,
+//       homework: homeworkId,
+//       date: { $gte: startOfDay, $lte: endOfDay },
+//     });
+//   }
+
+//   async markVocabCheck(data, requestingUser) {
+//     const { group: groupId, homework: homeworkId, date, records, topic } = data;
+
+//     const group = await Group.findOne({ _id: groupId, isDeleted: false });
+//     if (!group) throw new AppError('Group not found', 404);
+
+//     if (requestingUser.role === ROLES.TEACHER && group.teacher.toString() !== requestingUser._id.toString()) {
+//       throw new AppError('Unauthorized access to this group', 403);
+//     }
+//     if (requestingUser.role === ROLES.ASSISTANT && group.assistant?.toString() !== requestingUser._id.toString()) {
+//       throw new AppError('Unauthorized access to this group', 403);
+//     }
+
+//     const targetDate = new Date(date);
+//     const startOfDay = new Date(targetDate.setHours(0, 0, 0, 0));
+//     const endOfDay = new Date(targetDate.setHours(23, 59, 59, 999));
+    
+//     // Find if already exists today for this homework
+//     let check = await VocabCheck.findOne({
+//       group: groupId,
+//       homework: homeworkId,
+//       date: { $gte: startOfDay, $lte: endOfDay },
+//     });
+
+//     if (check) {
+//       check.records = records;
+//       check.topic = topic || check.topic;
+//       check.updatedBy = requestingUser._id;
+//       await check.save();
+//     } else {
+//       check = await VocabCheck.create({
+//         group: groupId,
+//         homework: homeworkId,
+//         date: startOfDay,
+//         records,
+//         topic,
+//         markedBy: requestingUser._id,
+//       });
+//     }
+
+//     return check;
+//   }
+// }
+
+// module.exports = new VocabCheckService();
+
+
+=========================================
 FILE: src\services\vocabulary.service.js
 =========================================
 const Vocabulary = require('../models/Vocabulary');
-const Group = require('../models/Group');
-const { NotFoundError, AppError } = require('../utils/AppError');
+const VocabularyAssignment = require('../models/VocabularyAssignment');
+const { NotFoundError, ConflictError } = require('../utils/AppError');
 const { parsePagination } = require('../utils/pagination');
 const { buildPaginationMeta } = require('../utils/response');
 const { audit, ACTIONS } = require('../utils/auditLog');
 
 class VocabularyService {
-  async getVocabularies(query, requestingUser) {
-    const { group } = query;
+
+  // ── Barcha lug'atlar (guruhsiz, global) ──────────────────────────────────────
+  async getVocabularies(query) {
+    const { search, topic } = query;
     const { page, limit, skip } = parsePagination(query);
 
     const filter = { isDeleted: false };
-    if (group) filter.group = group;
+    if (topic) filter.topic = topic;
+    if (search) filter.$text = { $search: search };
 
     const [vocabularies, total] = await Promise.all([
       Vocabulary.find(filter)
-        .populate('group', 'name')
         .populate('createdBy', 'firstName lastName')
         .sort({ createdAt: -1 })
         .skip(skip)
@@ -3597,19 +6352,24 @@ class VocabularyService {
     return { vocabularies, meta: buildPaginationMeta(total, page, limit) };
   }
 
+  // ── Bitta lug'at ─────────────────────────────────────────────────────────────
   async getVocabularyById(id) {
     const vocab = await Vocabulary.findOne({ _id: id, isDeleted: false })
-      .populate('group', 'name')
       .populate('createdBy', 'firstName lastName');
     if (!vocab) throw new NotFoundError('Vocabulary');
     return vocab;
   }
 
+  // ── Yaratish ─────────────────────────────────────────────────────────────────
   async createVocabulary(data, creatingUser) {
-    const group = await Group.findOne({ _id: data.group, isDeleted: false });
-    if (!group) throw new NotFoundError('Group');
+    const title = await Vocabulary.findOne({title: data.title})
 
-    const vocab = await Vocabulary.create({ ...data, createdBy: creatingUser._id });
+    if (title) throw new NotFoundError('Title avvaldan bor');
+
+    const vocab = await Vocabulary.create({
+      ...data,
+      createdBy: creatingUser._id,
+    });
 
     await audit({
       userId: creatingUser._id,
@@ -3622,6 +6382,7 @@ class VocabularyService {
     return vocab;
   }
 
+  // ── Yangilash ────────────────────────────────────────────────────────────────
   async updateVocabulary(id, data, updatingUser) {
     const vocab = await Vocabulary.findOne({ _id: id, isDeleted: false });
     if (!vocab) throw new NotFoundError('Vocabulary');
@@ -3639,6 +6400,7 @@ class VocabularyService {
     return vocab;
   }
 
+  // ── Tarjimani o'zgartirish ───────────────────────────────────────────────────
   async updateItemTranslation(vocabId, itemId, editedTranslation, updatingUser) {
     const vocab = await Vocabulary.findOne({ _id: vocabId, isDeleted: false });
     if (!vocab) throw new NotFoundError('Vocabulary');
@@ -3649,23 +6411,22 @@ class VocabularyService {
     item.editedTranslation = editedTranslation;
     await vocab.save();
 
-    await audit({
-      userId: updatingUser._id,
-      action: ACTIONS.UPDATE,
-      resource: 'Vocabulary',
-      resourceId: vocab._id,
-      details: { itemId, editedTranslation },
-    });
-
     return vocab;
   }
 
-  async softDeleteVocabulary(id, deletingUser) {
+  // ── O'chirish ────────────────────────────────────────────────────────────────
+  async deleteVocabulary(id, deletingUser) {
     const vocab = await Vocabulary.findOne({ _id: id, isDeleted: false });
     if (!vocab) throw new NotFoundError('Vocabulary');
 
     vocab.isDeleted = true;
     await vocab.save();
+
+    // Bu lug'atga tegishli barcha assignmentlarni ham o'chirish
+    await VocabularyAssignment.updateMany(
+      { vocabulary: id },
+      { isActive: false }
+    );
 
     await audit({
       userId: deletingUser._id,
@@ -3674,9 +6435,240 @@ class VocabularyService {
       resourceId: vocab._id,
     });
   }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // ASSIGNMENT metodlari
+  // ────────────────────────────────────────────────────────────────────────────
+
+  // ── Guruhga lug'at berish ────────────────────────────────────────────────────
+  async assignToGroup(vocabularyId, groupId, data, assigningUser) {
+    // Lug'at mavjudligini tekshirish
+    const vocab = await Vocabulary.findOne({ _id: vocabularyId, isDeleted: false });
+    if (!vocab) throw new NotFoundError('Vocabulary');
+
+    // Allaqachon berilganmi?
+    const existing = await VocabularyAssignment.findOne({
+      vocabulary: vocabularyId,
+      group: groupId,
+    });
+
+    if (existing) {
+      if (existing.isActive) {
+        throw new ConflictError('Bu lug\'at allaqachon bu guruhga berilgan');
+      }
+      // Eski assignment ni qayta faollashtirish
+      existing.isActive = true;
+      existing.dueDate = data.dueDate || null;
+      existing.note = data.note || '';
+      existing.assignedBy = assigningUser._id;
+      await existing.save();
+      return existing;
+    }
+
+    const assignment = await VocabularyAssignment.create({
+      vocabulary: vocabularyId,
+      group: groupId,
+      assignedBy: assigningUser._id,
+      dueDate: data.dueDate || null,
+      note: data.note || '',
+    });
+
+    await audit({
+      userId: assigningUser._id,
+      action: ACTIONS.ASSIGN,
+      resource: 'VocabularyAssignment',
+      resourceId: assignment._id,
+      details: { vocabularyId, groupId },
+    });
+
+    return assignment;
+  }
+
+  // ── Guruhdan lug'atni olib tashlash ──────────────────────────────────────────
+  async removeFromGroup(vocabularyId, groupId, removingUser) {
+    const assignment = await VocabularyAssignment.findOne({
+      vocabulary: vocabularyId,
+      group: groupId,
+      isActive: true,
+    });
+
+    if (!assignment) throw new NotFoundError('Assignment');
+
+    assignment.isActive = false;
+    await assignment.save();
+
+    await audit({
+      userId: removingUser._id,
+      action: ACTIONS.UPDATE,
+      resource: 'VocabularyAssignment',
+      resourceId: assignment._id,
+      details: { removed: true },
+    });
+  }
+
+  // ── Guruhning barcha lug'atlari ──────────────────────────────────────────────
+  async getGroupVocabularies(groupId, query) {
+    const { page, limit, skip } = parsePagination(query);
+
+    const filter = { group: groupId, isActive: true };
+
+    const [assignments, total] = await Promise.all([
+      VocabularyAssignment.find(filter)
+        .populate({
+          path: 'vocabulary',
+          match: { isDeleted: false },
+          populate: { path: 'createdBy', select: 'firstName lastName' },
+        })
+        .populate('assignedBy', 'firstName lastName')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      VocabularyAssignment.countDocuments(filter),
+    ]);
+
+    // vocabulary null bo'lganlarni filter qilish (o'chirilgan bo'lsa)
+    const filtered = assignments.filter(a => a.vocabulary !== null);
+
+    return {
+      vocabularies: filtered.map(a => ({
+        ...a.vocabulary,
+        assignmentId: a._id,
+        assignedBy: a.assignedBy,
+        assignedAt: a.createdAt,
+        dueDate: a.dueDate,
+        note: a.note,
+      })),
+      meta: buildPaginationMeta(total, page, limit),
+    };
+  }
+
+  // ── Lug'at qaysi guruhlarga berilganligini ko'rish ───────────────────────────
+  async getVocabularyGroups(vocabularyId) {
+    const assignments = await VocabularyAssignment.find({
+      vocabulary: vocabularyId,
+      isActive: true,
+    })
+      .populate('group', 'name level')
+      .populate('assignedBy', 'firstName lastName')
+      .lean();
+
+    return assignments;
+  }
 }
 
 module.exports = new VocabularyService();
+
+
+// const Vocabulary = require('../models/Vocabulary');
+// const Group = require('../models/Group');
+// const { NotFoundError, AppError } = require('../utils/AppError');
+// const { parsePagination } = require('../utils/pagination');
+// const { buildPaginationMeta } = require('../utils/response');
+// const { audit, ACTIONS } = require('../utils/auditLog');
+
+// class VocabularyService {
+//   async getVocabularies(query, requestingUser) {
+//     const { group } = query;
+//     const { page, limit, skip } = parsePagination(query);
+
+//     const filter = { isDeleted: false };
+//     if (group) filter.group = group;
+
+//     const [vocabularies, total] = await Promise.all([
+//       Vocabulary.find(filter)
+//         .populate('group', 'name')
+//         .populate('createdBy', 'firstName lastName')
+//         .sort({ createdAt: -1 })
+//         .skip(skip)
+//         .limit(limit)
+//         .lean(),
+//       Vocabulary.countDocuments(filter),
+//     ]);
+
+//     return { vocabularies, meta: buildPaginationMeta(total, page, limit) };
+//   }
+
+//   async getVocabularyById(id) {
+//     const vocab = await Vocabulary.findOne({ _id: id, isDeleted: false })
+//       .populate('group', 'name')
+//       .populate('createdBy', 'firstName lastName');
+//     if (!vocab) throw new NotFoundError('Vocabulary');
+//     return vocab;
+//   }
+
+//   async createVocabulary(data, creatingUser) {
+//     const group = await Group.findOne({ _id: data.group, isDeleted: false });
+//     if (!group) throw new NotFoundError('Group');
+
+//     const vocab = await Vocabulary.create({ ...data, createdBy: creatingUser._id });
+
+//     await audit({
+//       userId: creatingUser._id,
+//       action: ACTIONS.CREATE,
+//       resource: 'Vocabulary',
+//       resourceId: vocab._id,
+//       details: { title: vocab.title, itemCount: vocab.items.length },
+//     });
+
+//     return vocab;
+//   }
+
+//   async updateVocabulary(id, data, updatingUser) {
+//     const vocab = await Vocabulary.findOne({ _id: id, isDeleted: false });
+//     if (!vocab) throw new NotFoundError('Vocabulary');
+
+//     Object.assign(vocab, data);
+//     await vocab.save();
+
+//     await audit({
+//       userId: updatingUser._id,
+//       action: ACTIONS.UPDATE,
+//       resource: 'Vocabulary',
+//       resourceId: vocab._id,
+//     });
+
+//     return vocab;
+//   }
+
+//   async updateItemTranslation(vocabId, itemId, editedTranslation, updatingUser) {
+//     const vocab = await Vocabulary.findOne({ _id: vocabId, isDeleted: false });
+//     if (!vocab) throw new NotFoundError('Vocabulary');
+
+//     const item = vocab.items.id(itemId);
+//     if (!item) throw new NotFoundError('Vocabulary item');
+
+//     item.editedTranslation = editedTranslation;
+//     await vocab.save();
+
+//     await audit({
+//       userId: updatingUser._id,
+//       action: ACTIONS.UPDATE,
+//       resource: 'Vocabulary',
+//       resourceId: vocab._id,
+//       details: { itemId, editedTranslation },
+//     });
+
+//     return vocab;
+//   }
+
+//   async softDeleteVocabulary(id, deletingUser) {
+//     const vocab = await Vocabulary.findOne({ _id: id, isDeleted: false });
+//     if (!vocab) throw new NotFoundError('Vocabulary');
+
+//     vocab.isDeleted = true;
+//     await vocab.save();
+
+//     await audit({
+//       userId: deletingUser._id,
+//       action: ACTIONS.DELETE,
+//       resource: 'Vocabulary',
+//       resourceId: vocab._id,
+//     });
+//   }
+// }
+
+// module.exports = new VocabularyService();
 
 
 =========================================
@@ -3774,6 +6766,32 @@ const ACTIONS = {
 
 module.exports = { audit, ACTIONS };
 
+
+=========================================
+FILE: src\utils\custom-error-handler.js
+=========================================
+module.exports = class CustomErrorHandler extends Error {
+    constructor(status, message, errors) {
+        super(message)
+        this.status = status
+        this.errors = errors
+    }
+
+   static UnAuthorized(message, errors = []) {
+    return new CustomErrorHandler(401, message, errors)
+   }
+
+    static BadRequest(message, errors = []) {
+    return new CustomErrorHandler(400, message, errors)
+   }
+
+   static NotFound(message, errors = []) {
+    return new CustomErrorHandler(404, message, errors)
+   }
+   static Forbidden(message, errors = []) {
+    return new CustomErrorHandler(403, message, errors)
+   }
+}
 
 =========================================
 FILE: src\utils\jwt.js
@@ -4109,6 +7127,115 @@ seed();
 
 
 =========================================
+FILE: src\utils\sm2.js
+=========================================
+/**
+ * SM-2 algoritmi — Ebbinghaus Forgetting Curve asosida
+ *
+ * Interval jadval (stage → kun):
+ *   0 (new)      → bugun
+ *   1            → 1 kun
+ *   2            → 3 kun
+ *   3            → 7 kun
+ *   4            → 14 kun
+ *   5            → 21 kun
+ *   6 (mastered) → 30 kun
+ *   7 (mastered) → 60 kun
+ *
+ * To'g'ri javob  → stage oshadi, interval uzayadi
+ * Noto'g'ri javob → stage 0 ga tushadi, bugundan qaytadi
+ */
+
+const INTERVALS_DAYS = [0, 1, 3, 7, 14, 21, 30, 60];
+const MAX_STAGE = 7;
+
+/**
+ * O'quvchi javob bergandan keyin yangi holatni hisoblab beradi
+ *
+ * @param {object} wordState  - mavjud holat (stage, consecutiveCorrect, ...)
+ * @param {boolean} isCorrect - to'g'ri javob berdimi?
+ * @returns {object}          - yangilangan maydonlar
+ */
+function computeNextState(wordState, isCorrect) {
+  const now = new Date();
+
+  let { stage, consecutiveCorrect, totalReviews, totalCorrect } = wordState;
+
+  totalReviews += 1;
+
+  if (isCorrect) {
+    totalCorrect += 1;
+    consecutiveCorrect += 1;
+
+    // Stage oshirish (max 7 ga)
+    stage = Math.min(stage + 1, MAX_STAGE);
+  } else {
+    // Noto'g'ri — boshlang'ich holatga qaytarish
+    consecutiveCorrect = 0;
+    stage = 0;
+  }
+
+  // Keyingi takrorlash sanasini hisoblash
+  const daysToAdd = INTERVALS_DAYS[stage] ?? 1;
+  const nextReviewAt = new Date(now);
+  nextReviewAt.setDate(nextReviewAt.getDate() + daysToAdd);
+
+  // Status aniqlash
+  let status;
+  if (stage === 0) {
+    status = 'new';
+  } else if (stage < 3) {
+    status = 'learning';
+  } else if (stage < 6) {
+    status = 'review';
+  } else {
+    status = 'mastered';
+  }
+
+  return {
+    stage,
+    consecutiveCorrect,
+    totalReviews,
+    totalCorrect,
+    nextReviewAt,
+    lastReviewedAt: now,
+    status,
+  };
+}
+
+/**
+ * Bugun takrorlanishi kerak bo'lgan so'zlarni filtrlash
+ * (UI da ishlatsangiz ham bo'ladi)
+ *
+ * @param {Array} words - wordState massivi
+ * @returns {Array}
+ */
+function getDueWords(words) {
+  const now = new Date();
+  return words.filter(
+    (w) => w.status !== 'mastered' && new Date(w.nextReviewAt) <= now
+  );
+}
+
+/**
+ * Statistika hisoblash
+ */
+function computeStats(words) {
+  const now = new Date();
+  return {
+    total: words.length,
+    mastered: words.filter((w) => w.status === 'mastered').length,
+    learning: words.filter((w) => w.status === 'learning').length,
+    newWords: words.filter((w) => w.status === 'new').length,
+    dueToday: words.filter(
+      (w) => w.status !== 'mastered' && new Date(w.nextReviewAt) <= now
+    ).length,
+  };
+}
+
+module.exports = { computeNextState, getDueWords, computeStats, INTERVALS_DAYS };
+
+=========================================
 FILE: src\validators\attendance.validator.js
 =========================================
 const Joi = require('joi');
@@ -4275,14 +7402,18 @@ FILE: src\validators\homework.validator.js
 const Joi = require('joi');
 const { HOMEWORK_TYPES } = require('../config/constants');
 
+// ID yoki object ham qabul qiladi, oxirida string ID ga aylantiradi
+const idOrObject = Joi.alternatives().try(
+  Joi.string().hex().length(24),
+  Joi.object({ _id: Joi.string().hex().length(24).required() }).unknown(true)
+);
+
 const createHomeworkSchema = Joi.object({
   title: Joi.string().trim().min(2).max(200).required(),
   description: Joi.string().trim().max(1000).optional().allow('', null),
-  type: Joi.string()
-    .valid(...Object.values(HOMEWORK_TYPES))
-    .required(),
-  group: Joi.string().hex().length(24).required(),
-  dueDate: Joi.date().min('now').required(),
+  type: Joi.string().valid(...Object.values(HOMEWORK_TYPES)).required(),
+  group: idOrObject.required(),
+  dueDate: Joi.date().required(),
   isPublished: Joi.boolean().optional(),
 
   // URL type
@@ -4303,8 +7434,8 @@ const createHomeworkSchema = Joi.object({
   // VOCABULARY type
   vocabulary: Joi.when('type', {
     is: HOMEWORK_TYPES.VOCABULARY,
-    then: Joi.string().hex().length(24).required(),
-    otherwise: Joi.string().hex().length(24).optional().allow(null),
+    then: idOrObject.required(),
+    otherwise: idOrObject.optional().allow(null),
   }),
   timeLimitSeconds: Joi.number().integer().min(10).max(600).optional(),
 });
@@ -4336,6 +7467,70 @@ module.exports = {
   updateHomeworkSchema,
   homeworkQuerySchema,
 };
+
+
+// const Joi = require("joi");
+// const { HOMEWORK_TYPES } = require("../config/constants");
+
+// const createHomeworkSchema = Joi.object({
+//   title: Joi.string().trim().min(2).max(200).required(),
+//   description: Joi.string().trim().max(1000).optional().allow("", null),
+//   type: Joi.string().valid(...Object.values(HOMEWORK_TYPES)),
+//   group: Joi.string().hex().length(24).required(),
+//   dueDate: Joi.date().min("now").required(),
+//   isPublished: Joi.boolean().optional(),
+
+//   // URL type
+//   resourceUrl: Joi.when("type", {
+//     is: HOMEWORK_TYPES.URL,
+//     then: Joi.string().uri().required(),
+//     otherwise: Joi.string().uri().optional().allow("", null),
+//   }),
+//   urlDescription: Joi.string().trim().max(500).optional().allow("", null),
+
+//   // TEXT type
+//   textContent: Joi.when("type", {
+//     is: HOMEWORK_TYPES.TEXT,
+//     then: Joi.string().trim().min(1).max(5000).required(),
+//     otherwise: Joi.string().trim().max(5000).optional().allow("", null),
+//   }),
+
+//   // VOCABULARY type
+//   vocabulary: Joi.when("type", {
+//     is: HOMEWORK_TYPES.VOCABULARY,
+//     then: Joi.string().hex().length(24).required(),
+//     otherwise: Joi.string().hex().length(24).optional().allow(null),
+//   }),
+//   timeLimitSeconds: Joi.number().integer().min(10).max(600).optional(),
+// });
+
+// const updateHomeworkSchema = Joi.object({
+//   title: Joi.string().trim().min(2).max(200),
+//   description: Joi.string().trim().max(1000).allow("", null),
+//   dueDate: Joi.date(),
+//   isPublished: Joi.boolean(),
+//   resourceUrl: Joi.string().uri().allow("", null),
+//   urlDescription: Joi.string().trim().max(500).allow("", null),
+//   textContent: Joi.string().trim().max(5000).allow("", null),
+//   timeLimitSeconds: Joi.number().integer().min(10).max(600),
+// }).min(1);
+
+// const homeworkQuerySchema = Joi.object({
+//   group: Joi.string().hex().length(24),
+//   type: Joi.string().valid(...Object.values(HOMEWORK_TYPES)),
+//   isPublished: Joi.boolean(),
+//   dueBefore: Joi.date(),
+//   dueAfter: Joi.date(),
+//   page: Joi.number().integer().min(1),
+//   limit: Joi.number().integer().min(1).max(100),
+//   sort: Joi.string(),
+// });
+
+// module.exports = {
+//   createHomeworkSchema,
+//   updateHomeworkSchema,
+//   homeworkQuerySchema,
+// };
 
 
 =========================================
@@ -4376,6 +7571,64 @@ module.exports = {
   teacherNoteSchema,
 };
 
+
+=========================================
+FILE: src\validators\Studentvocab.validator.js
+=========================================
+const Joi = require('joi');
+
+// O'rganib javob berish
+const submitReviewSchema = Joi.object({
+  reviews: Joi.array()
+    .items(
+      Joi.object({
+        vocabularyItemId: Joi.string().hex().length(24).required(),
+        isCorrect: Joi.boolean().required(),
+      })
+    )
+    .min(1)
+    .required(),
+});
+
+// Lug'atdan o'quvchilarga qo'shish
+const addFromVocabSchema = Joi.object({
+  studentIds: Joi.array()
+    .items(Joi.string().hex().length(24))
+    .min(1)
+    .required(),
+});
+
+// VocabCheck natijalaridan qo'shish
+const addFromVocabCheckSchema = Joi.object({
+  studentId: Joi.string().hex().length(24).required(),
+  wordResults: Joi.array()
+    .items(
+      Joi.object({
+        vocabularyItemId: Joi.string().hex().length(24).required(),
+        vocabularyId: Joi.string().hex().length(24).required(),
+        word: Joi.string().required(),
+        translation: Joi.string().allow('', null).optional(),
+        language: Joi.string().valid('EN', 'UZ').default('EN'),
+        isCorrect: Joi.boolean().required(),
+      })
+    )
+    .min(1)
+    .required(),
+});
+
+// So'zlar ro'yxatini olish uchun query
+const getAllWordsQuerySchema = Joi.object({
+  status: Joi.string().valid('new', 'learning', 'review', 'mastered').optional(),
+  page: Joi.number().integer().min(1).default(1),
+  limit: Joi.number().integer().min(1).max(100).default(30),
+});
+
+module.exports = {
+  submitReviewSchema,
+  addFromVocabSchema,
+  addFromVocabCheckSchema,
+  getAllWordsQuerySchema,
+};
 
 =========================================
 FILE: src\validators\submission.validator.js
@@ -4499,12 +7752,16 @@ const vocabularyItemSchema = Joi.object({
 
 const createVocabularySchema = Joi.object({
   title: Joi.string().trim().min(2).max(200).required(),
-  group: Joi.string().hex().length(24).required(),
+  description: Joi.string().trim().max(500).optional().allow('', null),
+  topic: Joi.string().trim().max(100).optional().allow('', null),
+  // group endi yo'q — lug'at global yaratiladi
   items: Joi.array().items(vocabularyItemSchema).min(1).required(),
 });
 
 const updateVocabularySchema = Joi.object({
   title: Joi.string().trim().min(2).max(200),
+  description: Joi.string().trim().max(500).allow('', null),
+  topic: Joi.string().trim().max(100).allow('', null),
   items: Joi.array().items(vocabularyItemSchema).min(1),
 }).min(1);
 
@@ -4513,8 +7770,50 @@ const updateTranslationSchema = Joi.object({
   editedTranslation: Joi.string().trim().max(200).required(),
 });
 
+const assignToGroupSchema = Joi.object({
+  dueDate: Joi.date().optional().allow(null),
+  note: Joi.string().trim().max(500).optional().allow('', null),
+});
+
 module.exports = {
   createVocabularySchema,
   updateVocabularySchema,
   updateTranslationSchema,
+  assignToGroupSchema,
 };
+
+
+// const Joi = require('joi');
+
+// const vocabularyItemSchema = Joi.object({
+//   word: Joi.string().trim().min(1).max(100).required(),
+//   language: Joi.string().valid('EN', 'UZ').required(),
+//   translation: Joi.string().trim().max(200).optional().allow('', null),
+//   autoTranslation: Joi.string().trim().max(200).optional().allow('', null),
+//   editedTranslation: Joi.string().trim().max(200).optional().allow('', null),
+//   pronunciation: Joi.string().trim().optional().allow('', null),
+//   example: Joi.string().trim().max(300).optional().allow('', null),
+//   imageUrl: Joi.string().uri().optional().allow('', null),
+// });
+
+// const createVocabularySchema = Joi.object({
+//   title: Joi.string().trim().min(2).max(200).required(),
+//   group: Joi.string().hex().length(24).required(),
+//   items: Joi.array().items(vocabularyItemSchema).min(1).required(),
+// });
+
+// const updateVocabularySchema = Joi.object({
+//   title: Joi.string().trim().min(2).max(200),
+//   items: Joi.array().items(vocabularyItemSchema).min(1),
+// }).min(1);
+
+// const updateTranslationSchema = Joi.object({
+//   itemId: Joi.string().hex().length(24).required(),
+//   editedTranslation: Joi.string().trim().max(200).required(),
+// });
+
+// module.exports = {
+//   createVocabularySchema,
+//   updateVocabularySchema,
+//   updateTranslationSchema,
+// };
