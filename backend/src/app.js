@@ -31,8 +31,8 @@ app.use(
 app.use(mongoSanitize());
 
 // ─── Body Parsing ─────────────────────────────────────────────────────────────
-app.use(express.json({ limit: '10kb' }));
-app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+app.use(express.json({ limit: '10mb' })); //{ limit: '10kb' }
+app.use(express.urlencoded({ extended: true, limit: '10mb' })); //{ extended: true, limit: '10kb' }
 
 // ─── Logging ──────────────────────────────────────────────────────────────────
 if (process.env.NODE_ENV === 'development') {
