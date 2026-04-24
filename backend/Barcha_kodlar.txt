@@ -829,6 +829,308 @@ module.exports = {
 
 
 =========================================
+FILE: src\controllers\Personalword.controller.js
+=========================================
+const personalWordService = require('../services/Personalword.service');
+const { sendSuccess } = require('../utils/response');
+const { asyncHandler } = require('../middlewares/error.middleware');
+
+// ── O'QUVCHI endpointlari ──────────────────────────────────────────────────────
+
+// GET /api/v1/personal-words/due
+// Bugun takrorlanishi kerak so'zlar (max 50)
+exports.getDueWords = asyncHandler(async (req, res) => {
+  const result = await personalWordService.getDueWords(req.user._id);
+  sendSuccess(res, { data: result });
+});
+
+// GET /api/v1/personal-words/stats
+// Statistika (barcha so'zlarni tortmasdan)
+exports.getStats = asyncHandler(async (req, res) => {
+  const result = await personalWordService.getStats(req.user._id);
+  sendSuccess(res, { data: result });
+});
+
+// GET /api/v1/personal-words
+// Barcha so'zlar pagination bilan
+// ?source=self|teacher|vocabcheck
+// ?status=new|learning|review|mastered
+// ?page=1&limit=20
+exports.getAllWords = asyncHandler(async (req, res) => {
+  const result = await personalWordService.getAllWords(req.user._id, req.query);
+  sendSuccess(res, { data: result.words, meta: result.meta });
+});
+
+// GET /api/v1/personal-words/my-vocabulary
+// To'liq lug'at xazinasi — barcha manbadan, bittada
+// Summary ham qaytariladi (kimdan nechta so'z)
+exports.getMyVocabulary = asyncHandler(async (req, res) => {
+  const result = await personalWordService.getMyVocabulary(req.user._id, req.query);
+  sendSuccess(res, {
+    data: {
+      words:   result.words,
+      summary: result.summary,
+    },
+    meta: result.meta,
+  });
+});
+
+// POST /api/v1/personal-words
+// O'quvchi yangi so'z qo'shadi
+// Body: { word, translation, language }
+exports.addSelfWord = asyncHandler(async (req, res) => {
+  const result = await personalWordService.addSelfWord(req.user._id, req.body);
+  sendSuccess(res, {
+    data:    result,
+    message: "So'z shaxsiy lug'atingizga qo'shildi",
+    statusCode: 201,
+  });
+});
+
+// DELETE /api/v1/personal-words/:wordId
+// O'quvchi faqat o'zi qo'shgan so'zni (source: 'self') o'chira oladi
+exports.deleteSelfWord = asyncHandler(async (req, res) => {
+  const result = await personalWordService.deleteSelfWord(req.user._id, req.params.wordId);
+  sendSuccess(res, { data: result, message: "So'z o'chirildi" });
+});
+
+// PATCH /api/v1/personal-words/:wordId
+// O'quvchi faqat o'zi qo'shgan so'zni (source: 'self') tahrirlaydi
+// Body: { word?, translation?, language? }  — hammasi optional, kamida bittasi kerak
+exports.updateSelfWord = asyncHandler(async (req, res) => {
+  const result = await personalWordService.updateSelfWord(
+    req.user._id,
+    req.params.wordId,
+    req.body
+  );
+  sendSuccess(res, {
+    data:    result,
+    message: "So'z muvaffaqiyatli tahrirlandi",
+  });
+});
+
+// POST /api/v1/personal-words/review
+// SM-2 — o'quvchi javob berdi
+// Body: { reviews: [{ wordId, isCorrect }] }
+exports.submitReview = asyncHandler(async (req, res) => {
+  const result = await personalWordService.submitReview(req.user._id, req.body.reviews);
+  sendSuccess(res, {
+    data:    result,
+    message: `${result.reviewed} ta so'z tekshirildi`,
+  });
+});
+
+// ── O'QITUVCHI / ASSISTANT endpointlari ───────────────────────────────────────
+
+// POST /api/v1/personal-words/from-vocab/:vocabularyId
+// Ustoz lug'atini o'quvchilarga qo'shish
+// Body: { studentIds: [...] }
+exports.addFromVocabulary = asyncHandler(async (req, res) => {
+  const { studentIds } = req.body;
+
+  if (!studentIds || studentIds.length === 0) {
+    return sendSuccess(res, { data: { summary: [] } });
+  }
+
+  const results = await Promise.allSettled(
+    studentIds.map((sid) =>
+      personalWordService.addWordsFromVocabulary(sid, req.params.vocabularyId)
+    )
+  );
+
+  const summary = results.map((r, i) => ({
+    studentId:  studentIds[i],
+    success:    r.status === 'fulfilled',
+    addedCount: r.status === 'fulfilled' ? r.value.addedCount : 0,
+    error:      r.status === 'rejected'  ? r.reason?.message  : null,
+  }));
+
+  sendSuccess(res, {
+    data:       { summary },
+    message:    "Lug'at o'quvchilarga qo'shildi",
+    statusCode: 201,
+  });
+});
+
+// POST /api/v1/personal-words/from-vocabcheck
+// VocabCheck natijalaridan so'z qo'shish
+// Body: { studentId, wordResults: [...] }
+exports.addFromVocabCheck = asyncHandler(async (req, res) => {
+  const { studentId, wordResults } = req.body;
+  const result = await personalWordService.addFromVocabCheckResult(studentId, wordResults);
+  sendSuccess(res, {
+    data:       result,
+    message:    'VocabCheck natijalari saqlandi',
+    statusCode: 201,
+  });
+});
+
+// GET /api/v1/personal-words/group-stats?studentIds=id1,id2,id3
+// Guruh o'quvchilari statistikasi
+exports.getGroupStats = asyncHandler(async (req, res) => {
+  const studentIds = req.query.studentIds
+    ? req.query.studentIds.split(',').filter(Boolean)
+    : [];
+
+  if (studentIds.length === 0) {
+    return sendSuccess(res, { data: [] });
+  }
+
+  const result = await personalWordService.getGroupStats(studentIds);
+  sendSuccess(res, { data: result });
+});
+
+// ── ADMIN endpointlari ─────────────────────────────────────────────────────────
+
+// DELETE /api/v1/personal-words/student/:studentId/reset
+exports.resetStudentWords = asyncHandler(async (req, res) => {
+  const result = await personalWordService.resetStudentWords(req.params.studentId);
+  sendSuccess(res, { data: result, message: "O'quvchi lug'at bazasi tozalandi" });
+});
+
+// const personalWordService = require('../services/Personalword.service');
+// const { sendSuccess } = require('../utils/response');
+// const { asyncHandler } = require('../middlewares/error.middleware');
+
+// // ── O'QUVCHI endpointlari ──────────────────────────────────────────────────────
+
+// // GET /api/v1/personal-words/due
+// // Bugun takrorlanishi kerak so'zlar (max 50)
+// exports.getDueWords = asyncHandler(async (req, res) => {
+//   const result = await personalWordService.getDueWords(req.user._id);
+//   sendSuccess(res, { data: result });
+// });
+
+// // GET /api/v1/personal-words/stats
+// // Statistika (barcha so'zlarni tortmasdan)
+// exports.getStats = asyncHandler(async (req, res) => {
+//   const result = await personalWordService.getStats(req.user._id);
+//   sendSuccess(res, { data: result });
+// });
+
+// // GET /api/v1/personal-words
+// // Barcha so'zlar pagination bilan
+// // ?source=self|teacher|vocabcheck
+// // ?status=new|learning|review|mastered
+// // ?page=1&limit=20
+// exports.getAllWords = asyncHandler(async (req, res) => {
+//   const result = await personalWordService.getAllWords(req.user._id, req.query);
+//   sendSuccess(res, { data: result.words, meta: result.meta });
+// });
+
+// // GET /api/v1/personal-words/my-vocabulary
+// // To'liq lug'at xazinasi — barcha manbadan, bittada
+// // Summary ham qaytariladi (kimdan nechta so'z)
+// exports.getMyVocabulary = asyncHandler(async (req, res) => {
+//   const result = await personalWordService.getMyVocabulary(req.user._id, req.query);
+//   sendSuccess(res, {
+//     data: {
+//       words:   result.words,
+//       summary: result.summary,
+//     },
+//     meta: result.meta,
+//   });
+// });
+
+// // POST /api/v1/personal-words
+// // O'quvchi yangi so'z qo'shadi
+// // Body: { word, translation, language }
+// exports.addSelfWord = asyncHandler(async (req, res) => {
+//   const result = await personalWordService.addSelfWord(req.user._id, req.body);
+//   sendSuccess(res, {
+//     data:    result,
+//     message: "So'z shaxsiy lug'atingizga qo'shildi",
+//     statusCode: 201,
+//   });
+// });
+
+// // DELETE /api/v1/personal-words/:wordId
+// // O'quvchi faqat o'zi qo'shgan so'zni (source: 'self') o'chira oladi
+// exports.deleteSelfWord = asyncHandler(async (req, res) => {
+//   const result = await personalWordService.deleteSelfWord(req.user._id, req.params.wordId);
+//   sendSuccess(res, { data: result, message: "So'z o'chirildi" });
+// });
+
+// // POST /api/v1/personal-words/review
+// // SM-2 — o'quvchi javob berdi
+// // Body: { reviews: [{ wordId, isCorrect }] }
+// exports.submitReview = asyncHandler(async (req, res) => {
+//   const result = await personalWordService.submitReview(req.user._id, req.body.reviews);
+//   sendSuccess(res, {
+//     data:    result,
+//     message: `${result.reviewed} ta so'z tekshirildi`,
+//   });
+// });
+
+// // ── O'QITUVCHI / ASSISTANT endpointlari ───────────────────────────────────────
+
+// // POST /api/v1/personal-words/from-vocab/:vocabularyId
+// // Ustoz lug'atini o'quvchilarga qo'shish
+// // Body: { studentIds: [...] }
+// exports.addFromVocabulary = asyncHandler(async (req, res) => {
+//   const { studentIds } = req.body;
+
+//   if (!studentIds || studentIds.length === 0) {
+//     return sendSuccess(res, { data: { summary: [] } });
+//   }
+
+//   const results = await Promise.allSettled(
+//     studentIds.map((sid) =>
+//       personalWordService.addWordsFromVocabulary(sid, req.params.vocabularyId)
+//     )
+//   );
+
+//   const summary = results.map((r, i) => ({
+//     studentId:  studentIds[i],
+//     success:    r.status === 'fulfilled',
+//     addedCount: r.status === 'fulfilled' ? r.value.addedCount : 0,
+//     error:      r.status === 'rejected'  ? r.reason?.message  : null,
+//   }));
+
+//   sendSuccess(res, {
+//     data:       { summary },
+//     message:    "Lug'at o'quvchilarga qo'shildi",
+//     statusCode: 201,
+//   });
+// });
+
+// // POST /api/v1/personal-words/from-vocabcheck
+// // VocabCheck natijalaridan so'z qo'shish
+// // Body: { studentId, wordResults: [...] }
+// exports.addFromVocabCheck = asyncHandler(async (req, res) => {
+//   const { studentId, wordResults } = req.body;
+//   const result = await personalWordService.addFromVocabCheckResult(studentId, wordResults);
+//   sendSuccess(res, {
+//     data:       result,
+//     message:    'VocabCheck natijalari saqlandi',
+//     statusCode: 201,
+//   });
+// });
+
+// // GET /api/v1/personal-words/group-stats?studentIds=id1,id2,id3
+// // Guruh o'quvchilari statistikasi
+// exports.getGroupStats = asyncHandler(async (req, res) => {
+//   const studentIds = req.query.studentIds
+//     ? req.query.studentIds.split(',').filter(Boolean)
+//     : [];
+
+//   if (studentIds.length === 0) {
+//     return sendSuccess(res, { data: [] });
+//   }
+
+//   const result = await personalWordService.getGroupStats(studentIds);
+//   sendSuccess(res, { data: result });
+// });
+
+// // ── ADMIN endpointlari ─────────────────────────────────────────────────────────
+
+// // DELETE /api/v1/personal-words/student/:studentId/reset
+// exports.resetStudentWords = asyncHandler(async (req, res) => {
+//   const result = await personalWordService.resetStudentWords(req.params.studentId);
+//   sendSuccess(res, { data: result, message: "O'quvchi lug'at bazasi tozalandi" });
+// });
+
+=========================================
 FILE: src\controllers\sets.controller.js
 =========================================
 const SetsSchema = require("../models/sets.schema");
@@ -2381,6 +2683,123 @@ const LearnSchema = model("learn", Learn)
 module.exports = LearnSchema
 
 =========================================
+FILE: src\models\Personalword.model.js
+=========================================
+const mongoose = require('mongoose');
+
+/**
+ * PersonalWord — O'quvchining shaxsiy lug'at so'zlari
+ *
+ * ARXITEKTURA QARORI:
+ * ──────────────────
+ * Oldingi yondashuv: StudentVocab — bitta document, words[] subdocument array
+ *   Muammo: GET da butun array MongoDB dan JS ga tortiladi → server yuki
+ *
+ * Yangi yondashuv: PersonalWord — har bir so'z alohida document (ustoz kabi)
+ *   Afzallik:
+ *     ✓ MongoDB o'zi pagination, filter, sort qiladi — JS da hech narsa yuklanmaydi
+ *     ✓ Cheksiz so'z qo'shish mumkin — array to'lib qolmaydi
+ *     ✓ GET, UPDATE, DELETE — faqat kerakli so'zlar tortiladi
+ *     ✓ Index to'g'ridan-to'g'ri ishlaydi
+ *
+ * So'z manbalari (source):
+ *   teacher    → ustoz homework orqali qo'shgan (addWordsFromVocabulary)
+ *   self       → o'quvchi o'zi qo'shgan
+ *   vocabcheck → dars vaqtida VocabCheck orqali tushgan
+ */
+
+const personalWordSchema = new mongoose.Schema(
+  {
+    // Egasi — kim o'rganayotgan so'z
+    student: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+
+    // So'zning o'zi
+    word: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    translation: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    language: {
+      type: String,
+      enum: ['EN', 'UZ'],
+      default: 'EN',
+    },
+
+    // Manba
+    source: {
+      type: String,
+      enum: ['teacher', 'self', 'vocabcheck'],
+      required: true,
+    },
+
+    // Ustoz lug'atiga bog'liqlik (teacher/vocabcheck uchun to'ldiriladi)
+    vocabularyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Vocabulary',
+      default: null,
+    },
+    vocabularyItemId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
+    },
+
+    // ── SM-2 algoritmi maydonlari ─────────────────────────────────────────────
+    // stage: 0=yangi, 1-2=learning, 3-5=review, 6-7=mastered
+    stage: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 7,
+    },
+    consecutiveCorrect: { type: Number, default: 0 },
+    totalReviews:       { type: Number, default: 0 },
+    totalCorrect:       { type: Number, default: 0 },
+
+    nextReviewAt:   { type: Date, default: () => new Date() },
+    lastReviewedAt: { type: Date, default: null },
+
+    status: {
+      type: String,
+      enum: ['new', 'learning', 'review', 'mastered'],
+      default: 'new',
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+// ── Indexlar ──────────────────────────────────────────────────────────────────
+// Asosiy query: o'quvchi + bugungi due so'zlar
+personalWordSchema.index({ student: 1, nextReviewAt: 1 });
+
+// Filter: status bo'yicha
+personalWordSchema.index({ student: 1, status: 1 });
+
+// Filter: source bo'yicha (self/teacher/vocabcheck)
+personalWordSchema.index({ student: 1, source: 1 });
+
+// Duplicate tekshiruvi uchun (source: 'self' da bir xil so'z bo'lmasin)
+personalWordSchema.index({ student: 1, source: 1, word: 1 });
+
+// Teacher/vocabcheck uchun duplicate tekshiruvi
+personalWordSchema.index({ student: 1, vocabularyItemId: 1 }, {
+  unique: true,
+  partialFilterExpression: { vocabularyItemId: { $ne: null } },
+});
+
+module.exports = mongoose.model('PersonalWord', personalWordSchema);
+
+=========================================
 FILE: src\models\sets.schema.js
 =========================================
 const { Schema, model } = require("mongoose");
@@ -3638,6 +4057,7 @@ const WorkProjectsRouter = require("./work_projects.routes")
 const SetMeRouter = require("./set_me.routes")
 const SetsRouter = require("./sets.routes")
 const studentVocabRoutes = require("./Studentvocab.routes");
+const personalWordRoutes = require('./Personalword.routes');
 
 router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
@@ -3650,6 +4070,7 @@ router.use('/submissions', submissionRoutes);
 router.use('/speaking-results', speakingResultRoutes);
 router.use('/analytics', analyticsRoutes);
 router.use('/student-vocab', studentVocabRoutes);
+router.use('/personal-words', personalWordRoutes);
 
 // router 
 router.use(About_Me_Router)
@@ -3684,6 +4105,234 @@ LearnRouter.post("/add_learn", addLearn)
 
 module.exports = LearnRouter
 
+
+=========================================
+FILE: src\routes\Personalword.routes.js
+=========================================
+const router = require('express').Router();
+const ctrl   = require('../controllers/Personalword.controller');
+const { authenticate, authorize } = require('../middlewares/auth.middleware');
+const { validate } = require('../middlewares/validate.middleware');
+const {
+  addSelfWordSchema,
+  submitReviewSchema,
+  addFromVocabSchema,
+  addFromVocabCheckSchema,
+  getAllWordsQuerySchema,
+  updateSelfWordSchema,
+} = require('../validators/PersonalWord.validator');
+const { ROLES } = require('../config/constants');
+
+const { ADMIN, MANAGER, TEACHER, ASSISTANT, STUDENT } = ROLES;
+
+router.use(authenticate);
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// O'QUVCHI ENDPOINTLARI
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Bugun takrorlanishi kerak so'zlar
+router.get('/due',
+  authorize(STUDENT),
+  ctrl.getDueWords
+);
+
+// Statistika
+router.get('/stats',
+  authorize(STUDENT),
+  ctrl.getStats
+);
+
+// To'liq lug'at xazinasi — barcha manbadan, bittada
+// ?source=self|teacher|vocabcheck  ?status=...  ?page=1&limit=20
+router.get('/my-vocabulary',
+  authorize(STUDENT),
+  validate(getAllWordsQuerySchema, 'query'),
+  ctrl.getMyVocabulary
+);
+
+// Barcha so'zlar (filter/pagination)
+router.get('/',
+  authorize(STUDENT),
+  validate(getAllWordsQuerySchema, 'query'),
+  ctrl.getAllWords
+);
+
+// O'quvchi yangi so'z qo'shadi (cheksiz)
+// Body: { word, translation, language }
+router.post('/',
+  authorize(STUDENT),
+  validate(addSelfWordSchema),
+  ctrl.addSelfWord
+);
+
+// O'quvchi faqat o'zi qo'shgan so'zni o'chiradi
+router.delete('/:wordId',
+  authorize(STUDENT),
+  ctrl.deleteSelfWord
+);
+
+// O'quvchi faqat o'zi qo'shgan so'zni tahrirlaydi (ustoz kabi)
+// Body: { word?, translation?, language? }
+router.patch('/:wordId',
+  authorize(STUDENT),
+  validate(updateSelfWordSchema),
+  ctrl.updateSelfWord
+);
+
+// SM-2 review
+// Body: { reviews: [{ wordId, isCorrect }] }
+router.post('/review',
+  authorize(STUDENT),
+  validate(submitReviewSchema),
+  ctrl.submitReview
+);
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// O'QITUVCHI / ASSISTANT ENDPOINTLARI
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Ustoz lug'atini o'quvchilarga qo'shish
+// Body: { studentIds: [...] }
+router.post('/from-vocab/:vocabularyId',
+  authorize(TEACHER, ASSISTANT, ADMIN, MANAGER),
+  validate(addFromVocabSchema),
+  ctrl.addFromVocabulary
+);
+
+// VocabCheck natijalaridan qo'shish
+// Body: { studentId, wordResults: [...] }
+router.post('/from-vocabcheck',
+  authorize(TEACHER, ASSISTANT, ADMIN, MANAGER),
+  validate(addFromVocabCheckSchema),
+  ctrl.addFromVocabCheck
+);
+
+// Guruh statistikasi
+// ?studentIds=id1,id2,id3
+router.get('/group-stats',
+  authorize(TEACHER, ASSISTANT, ADMIN, MANAGER),
+  ctrl.getGroupStats
+);
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ADMIN ENDPOINTLARI
+// ═══════════════════════════════════════════════════════════════════════════════
+
+router.delete('/student/:studentId/reset',
+  authorize(ADMIN),
+  ctrl.resetStudentWords
+);
+
+module.exports = router;
+
+// const router = require('express').Router();
+// const ctrl   = require('../controllers/Personalword.controller');
+// const { authenticate, authorize } = require('../middlewares/auth.middleware');
+// const { validate } = require('../middlewares/validate.middleware');
+// const {
+//   addSelfWordSchema,
+//   submitReviewSchema,
+//   addFromVocabSchema,
+//   addFromVocabCheckSchema,
+//   getAllWordsQuerySchema,
+// } = require('../validators/Personalword.validator');
+// const { ROLES } = require('../config/constants');
+
+// const { ADMIN, MANAGER, TEACHER, ASSISTANT, STUDENT } = ROLES;
+
+// router.use(authenticate);
+
+// // ═══════════════════════════════════════════════════════════════════════════════
+// // O'QUVCHI ENDPOINTLARI
+// // ═══════════════════════════════════════════════════════════════════════════════
+
+// // Bugun takrorlanishi kerak so'zlar
+// router.get('/due',
+//   authorize(STUDENT),
+//   ctrl.getDueWords
+// );
+
+// // Statistika
+// router.get('/stats',
+//   authorize(STUDENT),
+//   ctrl.getStats
+// );
+
+// // To'liq lug'at xazinasi — barcha manbadan, bittada
+// // ?source=self|teacher|vocabcheck  ?status=...  ?page=1&limit=20
+// router.get('/my-vocabulary',
+//   authorize(STUDENT),
+//   validate(getAllWordsQuerySchema, 'query'),
+//   ctrl.getMyVocabulary
+// );
+
+// // Barcha so'zlar (filter/pagination)
+// router.get('/',
+//   authorize(STUDENT),
+//   validate(getAllWordsQuerySchema, 'query'),
+//   ctrl.getAllWords
+// );
+
+// // O'quvchi yangi so'z qo'shadi (cheksiz)
+// // Body: { word, translation, language }
+// router.post('/',
+//   authorize(STUDENT),
+//   validate(addSelfWordSchema),
+//   ctrl.addSelfWord
+// );
+
+// // O'quvchi faqat o'zi qo'shgan so'zni o'chiradi
+// router.delete('/:wordId',
+//   authorize(STUDENT),
+//   ctrl.deleteSelfWord
+// );
+
+// // SM-2 review
+// // Body: { reviews: [{ wordId, isCorrect }] }
+// router.post('/review',
+//   authorize(STUDENT),
+//   validate(submitReviewSchema),
+//   ctrl.submitReview
+// );
+
+// // ═══════════════════════════════════════════════════════════════════════════════
+// // O'QITUVCHI / ASSISTANT ENDPOINTLARI
+// // ═══════════════════════════════════════════════════════════════════════════════
+
+// // Ustoz lug'atini o'quvchilarga qo'shish
+// // Body: { studentIds: [...] }
+// router.post('/from-vocab/:vocabularyId',
+//   authorize(TEACHER, ASSISTANT, ADMIN, MANAGER),
+//   validate(addFromVocabSchema),
+//   ctrl.addFromVocabulary
+// );
+
+// // VocabCheck natijalaridan qo'shish
+// // Body: { studentId, wordResults: [...] }
+// router.post('/from-vocabcheck',
+//   authorize(TEACHER, ASSISTANT, ADMIN, MANAGER),
+//   validate(addFromVocabCheckSchema),
+//   ctrl.addFromVocabCheck
+// );
+
+// // Guruh statistikasi
+// // ?studentIds=id1,id2,id3
+// router.get('/group-stats',
+//   authorize(TEACHER, ASSISTANT, ADMIN, MANAGER),
+//   ctrl.getGroupStats
+// );
+
+// // ═══════════════════════════════════════════════════════════════════════════════
+// // ADMIN ENDPOINTLARI
+// // ═══════════════════════════════════════════════════════════════════════════════
+
+// router.delete('/student/:studentId/reset',
+//   authorize(ADMIN),
+//   ctrl.resetStudentWords
+// );
+
+// module.exports = router;
 
 =========================================
 FILE: src\routes\sets.routes.js
@@ -5348,6 +5997,797 @@ module.exports = new HomeworkService();
 
 
 =========================================
+FILE: src\services\Personalword.service.js
+=========================================
+const PersonalWord = require('../models/Personalword.model');
+const Vocabulary    = require('../models/Vocabulary');
+const mongoose      = require('mongoose');
+const { NotFoundError, AppError, ConflictError } = require('../utils/AppError');
+const { computeNextState, computeStats: _computeStats } = require('../utils/sm2');
+const { buildPaginationMeta } = require('../utils/response');
+const { parsePagination } = require('../utils/pagination');
+
+// SM-2 ga qo'shimcha: DB dan stats hisoblash
+async function computeDbStats(studentId) {
+  const now = new Date();
+  const sid = new mongoose.Types.ObjectId(studentId);
+
+  const [totals, dueCount] = await Promise.all([
+    PersonalWord.aggregate([
+      { $match: { student: sid } },
+      { $group: { _id: '$status', count: { $sum: 1 } } },
+    ]),
+    PersonalWord.countDocuments({
+      student: sid,
+      status: { $ne: 'mastered' },
+      nextReviewAt: { $lte: now },
+    }),
+  ]);
+
+  const statsMap = { new: 0, learning: 0, review: 0, mastered: 0 };
+  let total = 0;
+  for (const row of totals) {
+    statsMap[row._id] = row.count;
+    total += row.count;
+  }
+
+  return {
+    total,
+    newWords:  statsMap.new,
+    learning:  statsMap.learning,
+    review:    statsMap.review,
+    mastered:  statsMap.mastered,
+    dueToday:  dueCount,
+  };
+}
+
+class PersonalWordService {
+
+  // ── 1. Bugungi takrorlash uchun so'zlar ───────────────────────────────────
+  //
+  // Server yuki: MongoDB o'zi filter + limit qiladi.
+  // JS ga faqat max 50 ta so'z tortiladi.
+  //
+  async getDueWords(studentId) {
+    const now = new Date();
+
+    const words = await PersonalWord.find({
+      student: studentId,
+      status: { $ne: 'mastered' },
+      nextReviewAt: { $lte: now },
+    })
+      .limit(50)
+      .lean();
+
+    // Aralashtirib yuborish
+    const shuffled = words.sort(() => Math.random() - 0.5);
+
+    return {
+      words: shuffled,
+      count: shuffled.length,
+    };
+  }
+
+  // ── 2. Statistika ─────────────────────────────────────────────────────────
+  async getStats(studentId) {
+    return computeDbStats(studentId);
+  }
+
+  // ── 3. Barcha so'zlar — pagination bilan ──────────────────────────────────
+  //
+  // source, status bo'yicha filter.
+  // MongoDB o'zi skip/limit qiladi — butun collection tortilmaydi.
+  //
+  async getAllWords(studentId, query = {}) {
+    const { page, limit, skip } = parsePagination(query);
+    const { status, source } = query;
+
+    const filter = { student: studentId };
+    if (status) filter.status = status;
+    if (source) filter.source = source;
+
+    const [words, total] = await Promise.all([
+      PersonalWord.find(filter)
+        .sort({ nextReviewAt: 1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      PersonalWord.countDocuments(filter),
+    ]);
+
+    return {
+      words,
+      meta: buildPaginationMeta(total, page, limit),
+    };
+  }
+
+  // ── 4. O'quvchining TO'LIQ lug'at xazinasi ───────────────────────────────
+  //
+  // Barcha manbadan so'zlar, bittada, pagination bilan.
+  // source + status filter optional.
+  // Summary (har bir manbadan qancha so'z) ham qaytariladi.
+  //
+  async getMyVocabulary(studentId, query = {}) {
+    const { page, limit, skip } = parsePagination(query);
+    const { status, source } = query;
+
+    const filter = { student: studentId };
+    if (status) filter.status = status;
+    if (source) filter.source = source;
+
+    const [words, total, summary] = await Promise.all([
+      PersonalWord.find(filter)
+        .sort({ nextReviewAt: 1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      PersonalWord.countDocuments(filter),
+      // Har bir source dan nechta so'z borligini hisoblash
+      PersonalWord.aggregate([
+        { $match: { student: new mongoose.Types.ObjectId(studentId) } },
+        { $group: { _id: '$source', count: { $sum: 1 } } },
+      ]),
+    ]);
+
+    const summaryMap = { teacher: 0, self: 0, vocabcheck: 0 };
+    for (const row of summary) {
+      if (summaryMap[row._id] !== undefined) {
+        summaryMap[row._id] = row.count;
+      }
+    }
+
+    return {
+      words,
+      meta: buildPaginationMeta(total, page, limit),
+      summary: {
+        ...summaryMap,
+        total: summaryMap.teacher + summaryMap.self + summaryMap.vocabcheck,
+      },
+    };
+  }
+
+  // ── 5. Ustoz lug'atidan so'zlarni qo'shish ────────────────────────────────
+  //
+  // Homework berilganda chaqiriladi.
+  // Allaqachon mavjud so'zlar o'tkazib yuboriladi (vocabularyItemId unique index).
+  //
+  async addWordsFromVocabulary(studentId, vocabularyId) {
+    const vocab = await Vocabulary.findOne({ _id: vocabularyId, isDeleted: false }).lean();
+    if (!vocab) throw new NotFoundError('Vocabulary');
+
+    // Allaqachon qo'shilgan vocabularyItemId lar
+    const existingIds = await PersonalWord.distinct('vocabularyItemId', {
+      student: studentId,
+      vocabularyItemId: { $in: vocab.items.map((i) => i._id) },
+    });
+
+    const existingSet = new Set(existingIds.map((id) => id.toString()));
+
+    const newDocs = vocab.items
+      .filter((item) => !existingSet.has(item._id.toString()))
+      .map((item) => ({
+        student:          studentId,
+        word:             item.word,
+        translation:      item.translation || item.autoTranslation || '',
+        language:         item.language,
+        source:           'teacher',
+        vocabularyId:     vocab._id,
+        vocabularyItemId: item._id,
+        stage:            0,
+        consecutiveCorrect: 0,
+        totalReviews:     0,
+        totalCorrect:     0,
+        nextReviewAt:     new Date(),
+        lastReviewedAt:   null,
+        status:           'new',
+      }));
+
+    if (newDocs.length === 0) {
+      return { addedCount: 0 };
+    }
+
+    // insertMany — tezkor, bitta DB so'rovi
+    // ordered: false — agar birortasi xato bo'lsa qolganlarni davom ettiradi
+    await PersonalWord.insertMany(newDocs, { ordered: false });
+
+    return { addedCount: newDocs.length };
+  }
+
+  // ── 6. VocabCheck natijalaridan so'z qo'shish/yangilash ──────────────────
+  async addFromVocabCheckResult(studentId, wordResults) {
+    for (const result of wordResults) {
+      const existing = await PersonalWord.findOne({
+        student: studentId,
+        vocabularyItemId: result.vocabularyItemId,
+      });
+
+      if (existing) {
+        // Mavjud so'zni SM-2 bilan yangilash
+        const updates = computeNextState(existing, result.isCorrect);
+        Object.assign(existing, updates);
+        await existing.save();
+      } else {
+        // Yangi so'z qo'shish
+        const initialStage = result.isCorrect ? 1 : 0;
+        const nextReview = new Date(
+          Date.now() + (result.isCorrect ? 24 * 60 * 60 * 1000 : 0)
+        );
+        await PersonalWord.create({
+          student:          studentId,
+          word:             result.word,
+          translation:      result.translation || '',
+          language:         result.language || 'EN',
+          source:           'vocabcheck',
+          vocabularyId:     result.vocabularyId || null,
+          vocabularyItemId: result.vocabularyItemId,
+          stage:            initialStage,
+          consecutiveCorrect: result.isCorrect ? 1 : 0,
+          totalReviews:     1,
+          totalCorrect:     result.isCorrect ? 1 : 0,
+          nextReviewAt:     nextReview,
+          lastReviewedAt:   new Date(),
+          status:           initialStage === 0 ? 'new' : 'learning',
+        });
+      }
+    }
+
+    return { updated: wordResults.length };
+  }
+
+  // ── 7. O'QUVCHI O'ZI SO'Z QO'SHADI ───────────────────────────────────────
+  //
+  // Cheksiz so'z qo'shish mumkin (limit yo'q).
+  // Faqat duplicate tekshiruvi: o'zi qo'shgan so'zlar ichida xuddi shu so'z bormi?
+  //
+  async addSelfWord(studentId, wordData) {
+    const { word, translation, language = 'EN' } = wordData;
+
+    if (!word || !word.trim()) {
+      throw new AppError("So'z bo'sh bo'lmasligi kerak", 400);
+    }
+
+    const wordLower = word.trim().toLowerCase();
+
+    // Duplicate tekshiruvi — faqat 'self' manbali so'zlar ichida
+    const duplicate = await PersonalWord.findOne({
+      student: studentId,
+      source:  'self',
+      word:    { $regex: new RegExp(`^${wordLower}$`, 'i') },
+    });
+
+    if (duplicate) {
+      throw new ConflictError(`"${word}" so'zi allaqachon shaxsiy lug'atingizda mavjud`);
+    }
+
+    const newWord = await PersonalWord.create({
+      student:          studentId,
+      word:             word.trim(),
+      translation:      translation?.trim() || '',
+      language,
+      source:           'self',
+      vocabularyId:     null,
+      vocabularyItemId: null,
+      stage:            0,
+      consecutiveCorrect: 0,
+      totalReviews:     0,
+      totalCorrect:     0,
+      nextReviewAt:     new Date(),
+      lastReviewedAt:   null,
+      status:           'new',
+    });
+
+    return { word: newWord };
+  }
+
+  // ── 8. O'quvchi o'zi qo'shgan so'zni o'chiradi ───────────────────────────
+  async deleteSelfWord(studentId, wordId) {
+    const word = await PersonalWord.findOne({
+      _id:     wordId,
+      student: studentId,
+      source:  'self',      // faqat o'zi qo'shganlarini o'chira oladi
+    });
+
+    if (!word) {
+      throw new AppError(
+        "So'z topilmadi yoki faqat o'zingiz qo'shgan so'zlarni o'chira olasiz",
+        404
+      );
+    }
+
+    await word.deleteOne();
+    return { success: true };
+  }
+
+  // ── 9. O'quvchi o'zi qo'shgan so'zni tahrirlaydi ─────────────────────────
+  //
+  // Ustoz vocabulary ni o'zgartirganday — faqat source: 'self' bo'lgan
+  // so'zlardagina ruxsat beriladi.
+  //
+  // O'zgartirilishi mumkin bo'lgan fieldlar:
+  //   word        — so'zning o'zi
+  //   translation — tarjimasi
+  //   language    — tili (EN/UZ)
+  //
+  // SM-2 progress (stage, status, nextReviewAt va h.k.) o'zgartirilmaydi —
+  // o'rganish jarayoniga ta'sir qilmasin deb.
+  //
+  async updateSelfWord(studentId, wordId, updateData) {
+    const word = await PersonalWord.findOne({
+      _id:     wordId,
+      student: studentId,
+      source:  'self',   // faqat o'zi qo'shgan so'zlarni tahrirlashi mumkin
+    });
+
+    if (!word) {
+      throw new AppError(
+        "So'z topilmadi yoki faqat o'zingiz qo'shgan so'zlarni tahrirlaya olasiz",
+        404
+      );
+    }
+
+    const { word: newWord, translation, language } = updateData;
+
+    // Duplicate tekshiruvi — so'zni o'zgartirmoqchi bo'lsa, o'sha so'z boshqasida bormi?
+    if (newWord && newWord.trim().toLowerCase() !== word.word.toLowerCase()) {
+      const duplicate = await PersonalWord.findOne({
+        student: studentId,
+        source:  'self',
+        word:    { $regex: new RegExp(`^${newWord.trim()}$`, 'i') },
+        _id:     { $ne: wordId },  // o'zini hisobga olmaydi
+      });
+
+      if (duplicate) {
+        throw new AppError(
+          `"${newWord.trim()}" so'zi allaqachon shaxsiy lug'atingizda mavjud`,
+          409
+        );
+      }
+
+      word.word = newWord.trim();
+    }
+
+    if (translation !== undefined) word.translation = translation?.trim() ?? '';
+    if (language)                  word.language    = language;
+
+    await word.save();
+
+    return { word };
+  }
+
+  // ── 10. SM-2 review — o'quvchi javob berdi ───────────────────────────────
+  //
+  // reviews = [{ wordId, isCorrect }]
+  // wordId = PersonalWord._id (universal — barcha source uchun ishlaydi)
+  //
+  async submitReview(studentId, reviews) {
+    if (!reviews || reviews.length === 0) {
+      throw new AppError("reviews massivi bo'sh", 400);
+    }
+
+    const wordIds = reviews.map((r) => r.wordId);
+
+    // Barcha so'zlarni bitta so'rovda olamiz
+    const words = await PersonalWord.find({
+      _id:     { $in: wordIds },
+      student: studentId,
+    });
+
+    if (words.length === 0) throw new NotFoundError('PersonalWord');
+
+    const wordMap = new Map(words.map((w) => [w._id.toString(), w]));
+    const results = [];
+
+    for (const review of reviews) {
+      const word = wordMap.get(review.wordId.toString());
+      if (!word) continue;
+
+      const updates = computeNextState(word, review.isCorrect);
+      Object.assign(word, updates);
+      await word.save();   // individual save — har bir so'z alohida
+
+      results.push({
+        wordId:       word._id,
+        word:         word.word,
+        isCorrect:    review.isCorrect,
+        newStage:     updates.stage,
+        newStatus:    updates.status,
+        nextReviewAt: updates.nextReviewAt,
+      });
+    }
+
+    return {
+      reviewed: results.length,
+      results,
+    };
+  }
+
+  // ── 10. Guruh o'quvchilari statistikasi (o'qituvchi uchun) ───────────────
+  async getGroupStats(studentIds) {
+    const stats = await Promise.all(
+      studentIds.map(async (id) => ({
+        studentId: id,
+        stats: await computeDbStats(id),
+      }))
+    );
+    return stats;
+  }
+
+  // ── 11. Admin: o'quvchi barcha so'zlarini o'chirish ──────────────────────
+  async resetStudentWords(studentId) {
+    const result = await PersonalWord.deleteMany({ student: studentId });
+    return { success: true, deletedCount: result.deletedCount };
+  }
+}
+
+module.exports = new PersonalWordService();
+
+// const PersonalWord = require('../models/Personalword.model');
+// const Vocabulary    = require('../models/Vocabulary');
+// const mongoose      = require('mongoose');
+// const { NotFoundError, AppError, ConflictError } = require('../utils/AppError');
+// const { computeNextState, computeStats: _computeStats } = require('../utils/sm2');
+// const { buildPaginationMeta } = require('../utils/response');
+// const { parsePagination } = require('../utils/pagination');
+
+// // SM-2 ga qo'shimcha: DB dan stats hisoblash
+// async function computeDbStats(studentId) {
+//   const now = new Date();
+//   const sid = new mongoose.Types.ObjectId(studentId);
+
+//   const [totals, dueCount] = await Promise.all([
+//     PersonalWord.aggregate([
+//       { $match: { student: sid } },
+//       { $group: { _id: '$status', count: { $sum: 1 } } },
+//     ]),
+//     PersonalWord.countDocuments({
+//       student: sid,
+//       status: { $ne: 'mastered' },
+//       nextReviewAt: { $lte: now },
+//     }),
+//   ]);
+
+//   const statsMap = { new: 0, learning: 0, review: 0, mastered: 0 };
+//   let total = 0;
+//   for (const row of totals) {
+//     statsMap[row._id] = row.count;
+//     total += row.count;
+//   }
+
+//   return {
+//     total,
+//     newWords:  statsMap.new,
+//     learning:  statsMap.learning,
+//     review:    statsMap.review,
+//     mastered:  statsMap.mastered,
+//     dueToday:  dueCount,
+//   };
+// }
+
+// class PersonalWordService {
+
+//   // ── 1. Bugungi takrorlash uchun so'zlar ───────────────────────────────────
+//   //
+//   // Server yuki: MongoDB o'zi filter + limit qiladi.
+//   // JS ga faqat max 50 ta so'z tortiladi.
+//   //
+//   async getDueWords(studentId) {
+//     const now = new Date();
+
+//     const words = await PersonalWord.find({
+//       student: studentId,
+//       status: { $ne: 'mastered' },
+//       nextReviewAt: { $lte: now },
+//     })
+//       .limit(50)
+//       .lean();
+
+//     // Aralashtirib yuborish
+//     const shuffled = words.sort(() => Math.random() - 0.5);
+
+//     return {
+//       words: shuffled,
+//       count: shuffled.length,
+//     };
+//   }
+
+//   // ── 2. Statistika ─────────────────────────────────────────────────────────
+//   async getStats(studentId) {
+//     return computeDbStats(studentId);
+//   }
+
+//   // ── 3. Barcha so'zlar — pagination bilan ──────────────────────────────────
+//   //
+//   // source, status bo'yicha filter.
+//   // MongoDB o'zi skip/limit qiladi — butun collection tortilmaydi.
+//   //
+//   async getAllWords(studentId, query = {}) {
+//     const { page, limit, skip } = parsePagination(query);
+//     const { status, source } = query;
+
+//     const filter = { student: studentId };
+//     if (status) filter.status = status;
+//     if (source) filter.source = source;
+
+//     const [words, total] = await Promise.all([
+//       PersonalWord.find(filter)
+//         .sort({ nextReviewAt: 1 })
+//         .skip(skip)
+//         .limit(limit)
+//         .lean(),
+//       PersonalWord.countDocuments(filter),
+//     ]);
+
+//     return {
+//       words,
+//       meta: buildPaginationMeta(total, page, limit),
+//     };
+//   }
+
+//   // ── 4. O'quvchining TO'LIQ lug'at xazinasi ───────────────────────────────
+//   //
+//   // Barcha manbadan so'zlar, bittada, pagination bilan.
+//   // source + status filter optional.
+//   // Summary (har bir manbadan qancha so'z) ham qaytariladi.
+//   //
+//   async getMyVocabulary(studentId, query = {}) {
+//     const { page, limit, skip } = parsePagination(query);
+//     const { status, source } = query;
+
+//     const filter = { student: studentId };
+//     if (status) filter.status = status;
+//     if (source) filter.source = source;
+
+//     const [words, total, summary] = await Promise.all([
+//       PersonalWord.find(filter)
+//         .sort({ nextReviewAt: 1 })
+//         .skip(skip)
+//         .limit(limit)
+//         .lean(),
+//       PersonalWord.countDocuments(filter),
+//       // Har bir source dan nechta so'z borligini hisoblash
+//       PersonalWord.aggregate([
+//         { $match: { student: new mongoose.Types.ObjectId(studentId) } },
+//         { $group: { _id: '$source', count: { $sum: 1 } } },
+//       ]),
+//     ]);
+
+//     const summaryMap = { teacher: 0, self: 0, vocabcheck: 0 };
+//     for (const row of summary) {
+//       if (summaryMap[row._id] !== undefined) {
+//         summaryMap[row._id] = row.count;
+//       }
+//     }
+
+//     return {
+//       words,
+//       meta: buildPaginationMeta(total, page, limit),
+//       summary: {
+//         ...summaryMap,
+//         total: summaryMap.teacher + summaryMap.self + summaryMap.vocabcheck,
+//       },
+//     };
+//   }
+
+//   // ── 5. Ustoz lug'atidan so'zlarni qo'shish ────────────────────────────────
+//   //
+//   // Homework berilganda chaqiriladi.
+//   // Allaqachon mavjud so'zlar o'tkazib yuboriladi (vocabularyItemId unique index).
+//   //
+//   async addWordsFromVocabulary(studentId, vocabularyId) {
+//     const vocab = await Vocabulary.findOne({ _id: vocabularyId, isDeleted: false }).lean();
+//     if (!vocab) throw new NotFoundError('Vocabulary');
+
+//     // Allaqachon qo'shilgan vocabularyItemId lar
+//     const existingIds = await PersonalWord.distinct('vocabularyItemId', {
+//       student: studentId,
+//       vocabularyItemId: { $in: vocab.items.map((i) => i._id) },
+//     });
+
+//     const existingSet = new Set(existingIds.map((id) => id.toString()));
+
+//     const newDocs = vocab.items
+//       .filter((item) => !existingSet.has(item._id.toString()))
+//       .map((item) => ({
+//         student:          studentId,
+//         word:             item.word,
+//         translation:      item.translation || item.autoTranslation || '',
+//         language:         item.language,
+//         source:           'teacher',
+//         vocabularyId:     vocab._id,
+//         vocabularyItemId: item._id,
+//         stage:            0,
+//         consecutiveCorrect: 0,
+//         totalReviews:     0,
+//         totalCorrect:     0,
+//         nextReviewAt:     new Date(),
+//         lastReviewedAt:   null,
+//         status:           'new',
+//       }));
+
+//     if (newDocs.length === 0) {
+//       return { addedCount: 0 };
+//     }
+
+//     // insertMany — tezkor, bitta DB so'rovi
+//     // ordered: false — agar birortasi xato bo'lsa qolganlarni davom ettiradi
+//     await PersonalWord.insertMany(newDocs, { ordered: false });
+
+//     return { addedCount: newDocs.length };
+//   }
+
+//   // ── 6. VocabCheck natijalaridan so'z qo'shish/yangilash ──────────────────
+//   async addFromVocabCheckResult(studentId, wordResults) {
+//     for (const result of wordResults) {
+//       const existing = await PersonalWord.findOne({
+//         student: studentId,
+//         vocabularyItemId: result.vocabularyItemId,
+//       });
+
+//       if (existing) {
+//         // Mavjud so'zni SM-2 bilan yangilash
+//         const updates = computeNextState(existing, result.isCorrect);
+//         Object.assign(existing, updates);
+//         await existing.save();
+//       } else {
+//         // Yangi so'z qo'shish
+//         const initialStage = result.isCorrect ? 1 : 0;
+//         const nextReview = new Date(
+//           Date.now() + (result.isCorrect ? 24 * 60 * 60 * 1000 : 0)
+//         );
+//         await PersonalWord.create({
+//           student:          studentId,
+//           word:             result.word,
+//           translation:      result.translation || '',
+//           language:         result.language || 'EN',
+//           source:           'vocabcheck',
+//           vocabularyId:     result.vocabularyId || null,
+//           vocabularyItemId: result.vocabularyItemId,
+//           stage:            initialStage,
+//           consecutiveCorrect: result.isCorrect ? 1 : 0,
+//           totalReviews:     1,
+//           totalCorrect:     result.isCorrect ? 1 : 0,
+//           nextReviewAt:     nextReview,
+//           lastReviewedAt:   new Date(),
+//           status:           initialStage === 0 ? 'new' : 'learning',
+//         });
+//       }
+//     }
+
+//     return { updated: wordResults.length };
+//   }
+
+//   // ── 7. O'QUVCHI O'ZI SO'Z QO'SHADI ───────────────────────────────────────
+//   //
+//   // Cheksiz so'z qo'shish mumkin (limit yo'q).
+//   // Faqat duplicate tekshiruvi: o'zi qo'shgan so'zlar ichida xuddi shu so'z bormi?
+//   //
+//   async addSelfWord(studentId, wordData) {
+//     const { word, translation, language = 'EN' } = wordData;
+
+//     if (!word || !word.trim()) {
+//       throw new AppError("So'z bo'sh bo'lmasligi kerak", 400);
+//     }
+
+//     const wordLower = word.trim().toLowerCase();
+
+//     // Duplicate tekshiruvi — faqat 'self' manbali so'zlar ichida
+//     const duplicate = await PersonalWord.findOne({
+//       student: studentId,
+//       source:  'self',
+//       word:    { $regex: new RegExp(`^${wordLower}$`, 'i') },
+//     });
+
+//     if (duplicate) {
+//       throw new ConflictError(`"${word}" so'zi allaqachon shaxsiy lug'atingizda mavjud`);
+//     }
+
+//     const newWord = await PersonalWord.create({
+//       student:          studentId,
+//       word:             word.trim(),
+//       translation:      translation?.trim() || '',
+//       language,
+//       source:           'self',
+//       vocabularyId:     null,
+//       vocabularyItemId: null,
+//       stage:            0,
+//       consecutiveCorrect: 0,
+//       totalReviews:     0,
+//       totalCorrect:     0,
+//       nextReviewAt:     new Date(),
+//       lastReviewedAt:   null,
+//       status:           'new',
+//     });
+
+//     return { word: newWord };
+//   }
+
+//   // ── 8. O'quvchi o'zi qo'shgan so'zni o'chiradi ───────────────────────────
+//   async deleteSelfWord(studentId, wordId) {
+//     const word = await PersonalWord.findOne({
+//       _id:     wordId,
+//       student: studentId,
+//       source:  'self',      // faqat o'zi qo'shganlarini o'chira oladi
+//     });
+
+//     if (!word) {
+//       throw new AppError(
+//         "So'z topilmadi yoki faqat o'zingiz qo'shgan so'zlarni o'chira olasiz",
+//         404
+//       );
+//     }
+
+//     await word.deleteOne();
+//     return { success: true };
+//   }
+
+//   // ── 9. SM-2 review — o'quvchi javob berdi ────────────────────────────────
+//   //
+//   // reviews = [{ wordId, isCorrect }]
+//   // wordId = PersonalWord._id (universal — barcha source uchun ishlaydi)
+//   //
+//   async submitReview(studentId, reviews) {
+//     if (!reviews || reviews.length === 0) {
+//       throw new AppError("reviews massivi bo'sh", 400);
+//     }
+
+//     const wordIds = reviews.map((r) => r.wordId);
+
+//     // Barcha so'zlarni bitta so'rovda olamiz
+//     const words = await PersonalWord.find({
+//       _id:     { $in: wordIds },
+//       student: studentId,
+//     });
+
+//     if (words.length === 0) throw new NotFoundError('PersonalWord');
+
+//     const wordMap = new Map(words.map((w) => [w._id.toString(), w]));
+//     const results = [];
+
+//     for (const review of reviews) {
+//       const word = wordMap.get(review.wordId.toString());
+//       if (!word) continue;
+
+//       const updates = computeNextState(word, review.isCorrect);
+//       Object.assign(word, updates);
+//       await word.save();   // individual save — har bir so'z alohida
+
+//       results.push({
+//         wordId:       word._id,
+//         word:         word.word,
+//         isCorrect:    review.isCorrect,
+//         newStage:     updates.stage,
+//         newStatus:    updates.status,
+//         nextReviewAt: updates.nextReviewAt,
+//       });
+//     }
+
+//     return {
+//       reviewed: results.length,
+//       results,
+//     };
+//   }
+
+//   // ── 10. Guruh o'quvchilari statistikasi (o'qituvchi uchun) ───────────────
+//   async getGroupStats(studentIds) {
+//     const stats = await Promise.all(
+//       studentIds.map(async (id) => ({
+//         studentId: id,
+//         stats: await computeDbStats(id),
+//       }))
+//     );
+//     return stats;
+//   }
+
+//   // ── 11. Admin: o'quvchi barcha so'zlarini o'chirish ──────────────────────
+//   async resetStudentWords(studentId) {
+//     const result = await PersonalWord.deleteMany({ student: studentId });
+//     return { success: true, deletedCount: result.deletedCount };
+//   }
+// }
+
+// module.exports = new PersonalWordService();
+
+=========================================
 FILE: src\services\speakingResult.service.js
 =========================================
 const SpeakingResult = require('../models/SpeakingResult');
@@ -6118,6 +7558,7 @@ const Group = require('../models/Group');
 const { AppError } = require('../utils/AppError');
 const { ROLES } = require('../config/constants');
 const studentVocabService = require('./studentVocab.service');
+const personalWordService = require('../services/Personalword.service');
 
 class VocabCheckService {
   async getGroupVocabCheck(groupId, homeworkId, date, requestingUser) {
@@ -6233,9 +7674,9 @@ class VocabCheckService {
           language: vocabItem?.language || 'EN',
           isCorrect: wc.isFound,
         };
-      });
+      }); //await studentVocabService.addFromVocabCheckResult
 
-      await studentVocabService.addFromVocabCheckResult(
+      await personalWordService.addFromVocabCheckResult(
         record.student.toString(),
         wordResults
       );
@@ -7534,6 +8975,148 @@ module.exports = {
 //   homeworkQuerySchema,
 // };
 
+
+=========================================
+FILE: src\validators\Personalword.validator.js
+=========================================
+const Joi = require('joi');
+
+// O'quvchi o'zi so'z qo'shadi
+const addSelfWordSchema = Joi.object({
+  word:        Joi.string().trim().min(1).max(100).required(),
+  translation: Joi.string().trim().max(200).optional().allow('', null),
+  language:    Joi.string().valid('EN', 'UZ').default('EN'),
+});
+
+// SM-2 review
+// wordId = PersonalWord._id (MongoDB ObjectId)
+const submitReviewSchema = Joi.object({
+  reviews: Joi.array()
+    .items(
+      Joi.object({
+        wordId:    Joi.string().hex().length(24).required(),
+        isCorrect: Joi.boolean().required(),
+      })
+    )
+    .min(1)
+    .required(),
+});
+
+// Ustoz lug'atidan o'quvchilarga qo'shish
+const addFromVocabSchema = Joi.object({
+  studentIds: Joi.array()
+    .items(Joi.string().hex().length(24))
+    .min(1)
+    .required(),
+});
+
+// VocabCheck natijalaridan qo'shish
+const addFromVocabCheckSchema = Joi.object({
+  studentId: Joi.string().hex().length(24).required(),
+  wordResults: Joi.array()
+    .items(
+      Joi.object({
+        vocabularyItemId: Joi.string().hex().length(24).required(),
+        vocabularyId:     Joi.string().hex().length(24).required(),
+        word:             Joi.string().required(),
+        translation:      Joi.string().allow('', null).optional(),
+        language:         Joi.string().valid('EN', 'UZ').default('EN'),
+        isCorrect:        Joi.boolean().required(),
+      })
+    )
+    .min(1)
+    .required(),
+});
+
+// GET query params
+const getAllWordsQuerySchema = Joi.object({
+  source: Joi.string().valid('self', 'teacher', 'vocabcheck').optional(),
+  status: Joi.string().valid('new', 'learning', 'review', 'mastered').optional(),
+  page:   Joi.number().integer().min(1).default(1),
+  limit:  Joi.number().integer().min(1).max(100).default(20),
+});
+
+// O'quvchi o'zi qo'shgan so'zni tahrirlaydi
+// Kamida bitta field bo'lishi shart
+const updateSelfWordSchema = Joi.object({
+  word:        Joi.string().trim().min(1).max(100).optional(),
+  translation: Joi.string().trim().max(200).optional().allow('', null),
+  language:    Joi.string().valid('EN', 'UZ').optional(),
+}).min(1);   // ← kamida bitta field yuborilishi kerak
+
+module.exports = {
+  addSelfWordSchema,
+  updateSelfWordSchema,
+  submitReviewSchema,
+  addFromVocabSchema,
+  addFromVocabCheckSchema,
+  getAllWordsQuerySchema,
+};
+
+// const Joi = require('joi');
+
+// // O'quvchi o'zi so'z qo'shadi
+// const addSelfWordSchema = Joi.object({
+//   word:        Joi.string().trim().min(1).max(100).required(),
+//   translation: Joi.string().trim().max(200).optional().allow('', null),
+//   language:    Joi.string().valid('EN', 'UZ').default('EN'),
+// });
+
+// // SM-2 review
+// // wordId = PersonalWord._id (MongoDB ObjectId)
+// const submitReviewSchema = Joi.object({
+//   reviews: Joi.array()
+//     .items(
+//       Joi.object({
+//         wordId:    Joi.string().hex().length(24).required(),
+//         isCorrect: Joi.boolean().required(),
+//       })
+//     )
+//     .min(1)
+//     .required(),
+// });
+
+// // Ustoz lug'atidan o'quvchilarga qo'shish
+// const addFromVocabSchema = Joi.object({
+//   studentIds: Joi.array()
+//     .items(Joi.string().hex().length(24))
+//     .min(1)
+//     .required(),
+// });
+
+// // VocabCheck natijalaridan qo'shish
+// const addFromVocabCheckSchema = Joi.object({
+//   studentId: Joi.string().hex().length(24).required(),
+//   wordResults: Joi.array()
+//     .items(
+//       Joi.object({
+//         vocabularyItemId: Joi.string().hex().length(24).required(),
+//         vocabularyId:     Joi.string().hex().length(24).required(),
+//         word:             Joi.string().required(),
+//         translation:      Joi.string().allow('', null).optional(),
+//         language:         Joi.string().valid('EN', 'UZ').default('EN'),
+//         isCorrect:        Joi.boolean().required(),
+//       })
+//     )
+//     .min(1)
+//     .required(),
+// });
+
+// // GET query params
+// const getAllWordsQuerySchema = Joi.object({
+//   source: Joi.string().valid('self', 'teacher', 'vocabcheck').optional(),
+//   status: Joi.string().valid('new', 'learning', 'review', 'mastered').optional(),
+//   page:   Joi.number().integer().min(1).default(1),
+//   limit:  Joi.number().integer().min(1).max(100).default(20),
+// });
+
+// module.exports = {
+//   addSelfWordSchema,
+//   submitReviewSchema,
+//   addFromVocabSchema,
+//   addFromVocabCheckSchema,
+//   getAllWordsQuerySchema,
+// };
 
 =========================================
 FILE: src\validators\speakingResult.validator.js
