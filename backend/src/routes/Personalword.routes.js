@@ -9,7 +9,7 @@ const {
   addFromVocabCheckSchema,
   getAllWordsQuerySchema,
   updateSelfWordSchema,
-} = require('../validators/personalWord.validator');
+} = require('../validators/PersonalWord.validator');
 const { ROLES } = require('../config/constants');
 
 const { ADMIN, MANAGER, TEACHER, ASSISTANT, STUDENT } = ROLES;
