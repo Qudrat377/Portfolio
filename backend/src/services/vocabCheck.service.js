@@ -4,6 +4,7 @@ const Group = require('../models/Group');
 const { AppError } = require('../utils/AppError');
 const { ROLES } = require('../config/constants');
 const studentVocabService = require('./studentVocab.service');
+const personalWordService = require('../services/Personalword.service');
 
 class VocabCheckService {
   async getGroupVocabCheck(groupId, homeworkId, date, requestingUser) {
@@ -119,9 +120,9 @@ class VocabCheckService {
           language: vocabItem?.language || 'EN',
           isCorrect: wc.isFound,
         };
-      });
+      }); //await studentVocabService.addFromVocabCheckResult
 
-      await studentVocabService.addFromVocabCheckResult(
+      await personalWordService.addFromVocabCheckResult(
         record.student.toString(),
         wordResults
       );

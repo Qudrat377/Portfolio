@@ -22,6 +22,7 @@ const WorkProjectsRouter = require("./work_projects.routes")
 const SetMeRouter = require("./set_me.routes")
 const SetsRouter = require("./sets.routes")
 const studentVocabRoutes = require("./Studentvocab.routes");
+const personalWordRoutes = require('./Personalword.routes');
 
 router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
@@ -34,6 +35,7 @@ router.use('/submissions', submissionRoutes);
 router.use('/speaking-results', speakingResultRoutes);
 router.use('/analytics', analyticsRoutes);
 router.use('/student-vocab', studentVocabRoutes);
+router.use('/personal-words', personalWordRoutes);
 
 // router 
 router.use(About_Me_Router)
