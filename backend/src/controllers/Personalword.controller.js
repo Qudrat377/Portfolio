@@ -1,4 +1,4 @@
-const personalWordService = require('../services/personalWord.service');
+const personalWordService = require('../services/Personalword.service');
 const { sendSuccess } = require('../utils/response');
 const { asyncHandler } = require('../middlewares/error.middleware');
 
