@@ -303,8 +303,28 @@ class PersonalWordService {
     });
     const existingSet = new Set(existingIds.map(id => id.toString()));
 
-    const newDocs = vocab.items
-      .filter(item => !existingSet.has(item._id.toString()))
+    const remainingItems = vocab.items.filter(item => !existingSet.has(item._id.toString()));
+    if (remainingItems.length === 0) return { addedCount: 0 };
+
+    const regexps = remainingItems.map(item => new RegExp(`^${item.word.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}$`, 'i'));
+    const existingByText = await PersonalWord.find({
+      student: studentId,
+      word: { $in: regexps }
+    });
+
+    const existingTextSet = new Set(existingByText.map(doc => doc.word.toLowerCase()));
+
+    for (const doc of existingByText) {
+      const matchingItem = remainingItems.find(item => item.word.toLowerCase() === doc.word.toLowerCase());
+      if (matchingItem && (!doc.vocabularyItemId || doc.vocabularyItemId.toString() !== matchingItem._id.toString())) {
+        doc.vocabularyItemId = matchingItem._id;
+        doc.vocabularyId = vocab._id;
+        await doc.save();
+      }
+    }
+
+    const newDocs = remainingItems
+      .filter(item => !existingTextSet.has(item.word.toLowerCase()))
       .map(item => ({
         student:            studentId,
         word:               item.word,
@@ -341,10 +361,25 @@ class PersonalWordService {
     let addedCount = 0;
 
     for (const result of wordResults) {
-      const existing = await PersonalWord.findOne({
-        student:          studentId,
-        vocabularyItemId: result.vocabularyItemId,
-      });
+      let existing = null;
+      if (result.vocabularyItemId) {
+        existing = await PersonalWord.findOne({
+          student:          studentId,
+          vocabularyItemId: result.vocabularyItemId,
+        });
+      }
+
+      if (!existing && result.word) {
+        existing = await PersonalWord.findOne({
+          student: studentId,
+          word: { $regex: new RegExp(`^${result.word.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}$`, 'i') }
+        });
+        
+        if (existing && result.vocabularyItemId) {
+          existing.vocabularyItemId = result.vocabularyItemId;
+          if (result.vocabularyId) existing.vocabularyId = result.vocabularyId;
+        }
+      }
 
       if (existing) {
         // Mavjud so'z — SM-2 review, O'ZGARMAGAN
