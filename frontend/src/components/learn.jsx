@@ -9,7 +9,7 @@ function Learn() {
   const [data, setData] = useState([]);
   const [isLoading, setIsLoading] = useState(true); // Yuklanish holati
   const [error, setError] = useState(null);
-  const [cvLoading, setCVLoading] = useState([]);
+  const [cvLoading, setCVLoading] = useState(false);
 
   useEffect(() => {
     getData();
@@ -44,12 +44,11 @@ function Learn() {
     }
   };
 
-  // Button bosilganda ishlaydigan funksiya
   const handleDownloadSertificat = async () => {
     try {
       setCVLoading(true);
       const responsee = await fetch(
-        "https://portfolio-del-backend.onrender.com/get_all_CVandSertificat",
+        "https://portfolio-del-backend.onrender.com/api/v1/get_all_CVandSertificat",
       );
 
       if (!responsee.ok) throw new Error("Ma'lumot olishda xatolik");
@@ -57,37 +56,30 @@ function Learn() {
       const dates = await responsee.json();
 
       if (Array.isArray(dates) && dates.length > 0) {
-        // Bazadan kelgan linkni olamiz
         const rawUrl = dates[0]?.sertificat_url;
 
-        if (rawUrl === "") {
-            return toast("Kursni bitirmadim hali")
+        if (!rawUrl || rawUrl === "") {
+            toast.info("Hozircha kursni yakunlamaganman, sertifikat yuklanmagan.");
+            return;
         }
 
-        if (rawUrl) {
-          // 1. Linkni yuklab olish formatiga keltiramiz (Google Drive bo'lsa)
-          const downloadUrl = rawUrl.replace(
-            "/view?usp=sharing",
-            "/uc?export=download",
-          );
+        const downloadUrl = rawUrl.replace(
+          "/view?usp=sharing",
+          "/uc?export=download",
+        );
 
-          // 2. Ko'rinmas 'a' tegi yaratamiz
-          const link = document.createElement("a");
-          link.href = downloadUrl;
-
-          // 3. Fayl nomini belgilaymiz
-          link.setAttribute("download", "Qudrat_Razzoqov_CV.pdf");
-
-          // 4. Tegni dokumentga qo'shib, uni avtomatik bosamiz
-          document.body.appendChild(link);
-          link.click();
-
-          // 5. Tegni o'chirib tashlaymiz
-          document.body.removeChild(link);
-        }
+        const link = document.createElement("a");
+        link.href = downloadUrl;
+        link.setAttribute("download", "Qudrat_Razzoqov_Sertifikat.pdf");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        toast.info("Sertifikat topilmadi.");
       }
     } catch (error) {
       console.error("Xato:", error.message);
+      toast.error("Sertifikatni olishda xatolik yuz berdi.");
     } finally {
       setCVLoading(false);
     }

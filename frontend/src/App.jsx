@@ -28,9 +28,9 @@ function App() {
         <div className={`${styles.container}`}>
             <Statistics />
             <Works />
+            <Skills />
             <Learn />
             {/* <Billing /> */}
-            <Skills />
             <Business />
             {/* <Clients /> */}
             {/* <CTA /> */}
