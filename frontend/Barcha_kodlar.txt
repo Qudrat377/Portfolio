@@ -1,0 +1,2364 @@
+=========================================
+LOYIHA KODLARI JAMLANMASI
+Sana: 11.04.2026, 11:23:43
+=========================================
+
+
+
+='.repeat(60)
+FILE: src\App.css
+='.repeat(60)
+
+
+
+
+='.repeat(60)
+FILE: src\App.jsx
+='.repeat(60)
+
+import { Billing, Business, Contract, CTA, Footer, Navbar, Statistics } from "./components"
+import About_me from "./components/about_me"
+import Learn from "./components/learn"
+import Skills from "./components/skills"
+import Works from "./components/works"
+import {styles} from "./Util/style"
+
+function App() {
+  return (
+    <div className="bg-primary w-full overflow-hidden">
+
+      {/* Navbar  */}
+      <div className={`${styles.paddingX} ${styles.flexStart}`}>
+        <div className={`${styles.container}`}>
+            <Navbar />
+        </div>
+      </div>
+
+      {/* Home  */}
+      <div className={`bg-primary ${styles.flexStart}`}>
+        <div className={styles.container}>
+            <About_me />
+        </div>
+      </div>
+
+
+      <div className={`bg-primary ${styles.paddingX} ${styles.flexStart}`}>
+        <div className={`${styles.container}`}>
+            <Statistics />
+            <Learn />
+            {/* <Billing /> */}
+            <Skills />
+            <Works />
+            <Business />
+            {/* <Clients /> */}
+            {/* <CTA /> */}
+            {/* <Footer /> */}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default App
+
+
+
+='.repeat(60)
+FILE: src\components\about_me.jsx
+='.repeat(60)
+
+// import { useState } from "react";
+// import { discount, robot } from "../assets";
+// import { styles } from "../Util/style";
+// import Button from "./button";
+// import { useEffect } from "react";
+
+// function Home() {
+//   const [data, setData] = useState([]);
+//   const [error, setError] = useState(null);
+// console.log(data);
+
+//   useEffect(() => {
+//     getData();
+//   }, []);
+
+//   // get
+
+//   const getData = async () => {
+//     try {
+//       const response = await fetch("https://portfolio-del-backend.onrender.com/get_all_about_me", {
+//         method: "GET",
+//         headers: {
+//           // chekts: chekt,
+//           "Content-type": "application/json",
+//         },
+//         credentials: "include",
+//       });
+//       if (!response.ok) {
+//         throw new Error("Mallumot olishda xatolik");
+//       }
+
+//       const info = await response.json();
+
+//       if (Array.isArray(info)) {
+//         setData(info);
+//       } else {
+//         setData([]);
+//       }
+//     } catch (error) {
+//       console.log(error.message);
+//       setError("Malumot yuklashda xatolik");
+//     }
+//   };
+
+//   return (
+//     <section
+//       id="home"
+//       className={`flex md:flex-row flex-col ${styles.paddingY}`}
+//     >
+//       {/* animation img  */}
+//       <div className={`flex-1 ${styles.flexStart} md:my-0 my-10`}>
+//   <img
+//     src={data[0]?.about_me_image}
+//     // src="https://i.postimg.cc/bJ3X0NcJ/Snimok-ekrana-2025-10-15-210352.png"
+//     alt="me"
+//     /* w-64 h-64 — o'lchamni o'zingizga moslang, rounded-full — aylana qiladi #00f6ff */
+//     className="w-114 h-114 object-cover rounded-full relative z-10 border-4 border-blue-500 shadow-xl"
+//   />
+// </div>
+
+//       {/* information */}
+//       <div
+//         className={`flex-1 ${styles.flexStart} flex-col xl:px-0 sm:px-16 px-6 relative`}
+//       >
+//         {/* Discount information  */}
+//         {/* <div className="flex flex-row items-center py-1.5 px-4 rounded-[10px] mb-2 bg-slate-500 bg-discount-gradient">
+//           <img src={discount} alt="discount" className={`w-8 h-8`} />
+//           <p className={`${styles.paragraph} ml-2`}>
+//             <span className="text-white"> 20% </span> Chegirma{" "}
+//             <span className="text-white"> 1 oylik </span> hisob uchun
+//           </p>
+//         </div> */}
+
+//         {/* Title  */}
+//         <div className={`w-full`}></div>
+//         <h1 className={`${styles.heading1}`}>
+//          {data[0]?.salom} <br/> {data[0]?.fullName} <br /> <span className="text-gradient"> {data[0]?.work_title}</span>
+//         </h1>
+
+//         {/* description */}
+//         <p className={`${styles.paragraph} mt-5 max-w-137.5`}>
+//           {data[0]?.work_description}
+//         </p>
+
+//         {/* Grtting started  */}
+//         <Button stayles={"mt-5"}/>
+
+//         {/* Gradient background */}
+//         <div className={`absolute z-0 w-[40%] h-[35%] top-0 pink__gradient`}/>
+//         <div className={`absolute z-1 w-[80%] h-[80%] rounded-full bottom-40 white__gradient`}/>
+//         <div className={`absolute z-0 w-[50%] h-[50%] right-20 bottom-20 blue__gradient`}/>
+//       </div>
+//     </section>
+//   );
+// }
+
+// export default Home;
+
+import { useState, useEffect } from "react";
+import { styles } from "../Util/style";
+import Button from "./button";
+import { ToastContainer, toast } from "react-toastify";
+
+function About_me() {
+  const [data, setData] = useState([]);
+  const [isLoading, setIsLoading] = useState(true); // Yuklanish holati
+  const [error, setError] = useState(null);
+  const [cvLoading, setCVLoading] = useState([]);
+
+  useEffect(() => {
+    getData();
+  }, []);
+
+  const getData = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch("https://portfolio-del-backend.onrender.com/get_all_about_me", {
+        method: "GET",
+        headers: {
+          "Content-type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Ma'lumot olishda xatolik yuz berdi");
+      }
+
+      const info = await response.json();
+
+      if (Array.isArray(info) && info.length > 0) {
+        setData(info);
+      } else {
+        setData([]);
+      }
+    } catch (error) {
+      console.error("Xato:", error.message);
+      setError(error.message);
+    } finally {
+      setIsLoading(false); // Yuklash tugadi (xato bo'lsa ham)
+    }
+  };
+
+  // Button bosilganda ishlaydigan funksiya
+  const handleDownloadCV = async () => {
+    try {
+      setCVLoading(true);
+      const responsee = await fetch(
+        "https://portfolio-del-backend.onrender.com/get_all_CVandSertificat",
+      );
+
+      if (!responsee.ok) throw new Error("Ma'lumot olishda xatolik");
+
+      const dates = await responsee.json();
+
+      if (Array.isArray(dates) && dates.length > 0) {
+        // Bazadan kelgan linkni olamiz
+        const rawUrl = dates[0]?.cv_url;
+
+        if (rawUrl === "") {
+          return toast("CV hali yuklanmagan");
+        }
+
+        if (rawUrl) {
+          // 1. Linkni yuklab olish formatiga keltiramiz (Google Drive bo'lsa)
+          const downloadUrl = rawUrl.replace(
+            "/view?usp=sharing",
+            "/uc?export=download",
+          );
+
+          // 2. Ko'rinmas 'a' tegi yaratamiz
+          const link = document.createElement("a");
+          link.href = downloadUrl;
+
+          // 3. Fayl nomini belgilaymiz
+          link.setAttribute("download", "Qudrat_Razzoqov_CV.pdf");
+
+          // 4. Tegni dokumentga qo'shib, uni avtomatik bosamiz
+          document.body.appendChild(link);
+          link.click();
+
+          // 5. Tegni o'chirib tashlaymiz
+          document.body.removeChild(link);
+        }
+      }
+    } catch (error) {
+      console.error("Xato:", error.message);
+    } finally {
+      setCVLoading(false);
+    }
+  };
+
+  // 1. Yuklanayotgan paytda ko'rinadigan qism
+  if (isLoading) {
+    return (
+      <div className={`min-h-125 w-full ${styles.flexCenter}`}>
+        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  // 2. Xatolik yuz berganda ko'rinadigan qism
+  if (error) {
+    return (
+      <div className={`min-h-125 w-full ${styles.flexCenter} text-white`}>
+        <p>Xatolik: {error}. Iltimos, serverni tekshiring.</p>
+      </div>
+    );
+  }
+
+  // 3. Ma'lumot muvaffaqiyatli kelganda
+  const profile = data[0]; // Qisqaroq yozish uchun
+
+  return (
+    <section
+      id="home"
+      className={`flex md:flex-row flex-col ${styles.paddingY}`}
+    >
+      <ToastContainer
+          position="top-left"
+          autoClose={4000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick={false}
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="light"
+        />
+      {/* Rasm qismi */}
+
+      <div className={`flex-1 ${styles.flexCenter} md:my-0 my-10 relative`}>
+        <img
+          src={profile?.about_me_image}
+          alt="me"
+          className="w-75 h-75 ss:w-112.5 ss:h-112.5 object-cover rounded-full relative z-10 border-4 border-blue-500 shadow-2xl"
+        />
+        {/* Gradientlar */}
+        <div className="absolute z-0 w-[40%] h-[35%] top-0 pink__gradient" />
+        <div className="absolute z-1 w-[80%] h-[80%] rounded-full bottom-40 white__gradient" />
+        <div className="absolute z-0 w-[50%] h-[50%] right-20 bottom-20 blue__gradient" />
+      </div>
+
+      {/* Ma'lumotlar qismi */}
+      <div
+        className={`flex-1 ${styles.flexStart} flex-col xl:px-0 sm:px-16 px-6`}
+      >
+        <div className="w-full">
+          <h1 className={`${styles.heading1}`}>
+            {profile?.salom} <br className="sm:block hidden" />
+            <span className="text-gradient">{profile?.fullName}</span>
+          </h1>
+          <h2 className="text-white font-semibold text-[32px] mt-2">
+            {profile?.work_title}
+          </h2>
+        </div>
+
+        <p className={`${styles.paragraph} mt-5 max-w-117.5`}>
+          {profile?.work_description}
+        </p>
+
+        {/* Tugmaga onclick funksiyasini biriktiramiz */}
+        <div onClick={handleDownloadCV}>
+          <Button stayles="mt-10" title="CV yuklab olish" />
+        </div>
+        {/* <Button stayles="mt-10" /> */}
+      </div>
+    </section>
+  );
+}
+
+export default About_me;
+
+
+
+='.repeat(60)
+FILE: src\components\billing.jsx
+='.repeat(60)
+
+import { apple, bill, google } from "../assets"
+import { layout, styles } from "../Util/style"
+
+function Billing() {
+  return (
+    <section id="features" className={layout.sectionReverse}>
+        <div className={layout.sectionImageReverse}>
+            <img src={bill} alt="bill" className={`w-full h-full relative z-5`}/>
+            
+        {/* Gradient background */}
+        <div className={`absolute z-3 -left-1/2 w-[50%] h-[55%] rounded-full top-0 white__gradien`}/>
+        <div className={`absolute z-0 w-[50%] h-[50%] -left-1/2 bottom-0 rounded-full pink__gradient`}/>
+        
+        </div>
+        <div className={layout.sectionInfo}>
+            <h2 className={styles.heading2}>
+                Hisob-kitob va fakturial BILLINGDAN <br className="sm-block hidden"/> osongina boshqaring
+            </h2>
+            <p className={`${styles.paragraph} max-w-137.5 mt-5`}>
+                Lorem ipsum dolor sit amet consectetur adipisicing elit. Et, eligendi praesentium. Unde facilis inventore quae consequuntur ipsam vel, numquam repellat.
+            </p>
+
+            <div className={`flex flex-row flex-wrap sm:mt-10 mt-6`}>
+                <img src={google} alt="google" className={`w-32.25 h-10.5 object-contain mr-5 cursor-pointer`}/>
+                <img src={apple} alt="apple" className={`w-32.25 h-10.5 object-contain mr-5 cursor-pointer`}/>
+            </div>
+        </div>
+    </section>
+  )
+}
+
+export default Billing
+
+
+='.repeat(60)
+FILE: src\components\business.jsx
+='.repeat(60)
+
+import { useEffect, useState } from "react";
+import { features } from "../Util/constants"
+import { layout, styles } from "../Util/style"
+import Button from "./button"
+import FeatureCard from "./feature-card"
+
+function Business() {
+  const [data, setData] = useState([]);
+    const [projects, setProjects] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState(null);
+  
+    // 1. Funksiyalarni useEffect dan tepada e'lon qilamiz
+    const getData = async () => {
+      try {
+        const response = await fetch("https://portfolio-del-backend.onrender.com/get_all_SetMe", {
+          method: "GET",
+          headers: { "Content-type": "application/json" },
+        });
+        if (!response.ok) throw new Error("Sarlavha olishda xatolik");
+        const info = await response.json();
+        setData(Array.isArray(info) ? info : []);
+      } catch (error) {
+        setError(error.message);
+      }
+    };
+  
+    const fetchProjects = async () => {
+      try {
+        const response = await fetch("https://portfolio-del-backend.onrender.com/get_all_sets");
+        if (!response.ok) throw new Error("Loyihalarni yuklashda xatolik");
+        const dates = await response.json();
+        setProjects(Array.isArray(dates) ? dates : []);
+      } catch (err) {
+        setError(err.message);
+      }
+    };
+  
+    // 2. Barcha ma'lumotlarni bir vaqtda olish uchun useEffect
+    useEffect(() => {
+      const fetchAll = async () => {
+        setIsLoading(true);
+        await Promise.all([getData(), fetchProjects()]);
+        setIsLoading(false);
+      };
+      fetchAll();
+    }, []);
+  
+    // 3. SHARTLI RETURNLAR (Barcha funksiyalar va Hooklardan keyin bo'lishi shart!)
+    if (isLoading) {
+      return (
+        <div className={`min-h-100 w-full ${styles.flexCenter}`}>
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      );
+    }
+  
+    if (error) {
+      return (
+        <div className={`min-h-100 w-full ${styles.flexCenter} text-white`}>
+          <p>Xatolik: {error}. Iltimos, serverni tekshiring.</p>
+        </div>
+      );
+    }
+  
+  return (
+    <section id="features" className={layout.section}>
+      <div className={layout.sectionInfo}>
+        <h2 className={`${styles.heading2} text-gradient`}>
+          {data[0]?.set_me_title_first} <br /> <br className={`sm:block hidden`} />{data[0]?.set_me_title_second}
+        </h2>
+        <p className={`${styles.paragraph} max-w-137.5 mt-5`}>
+          {data[0]?.set_me_description}
+        </p>
+        {/* <Button stayles={`mt-10`}/> */}
+      </div>
+      <div className={`${layout.sectionImage} flex-col`}>
+        {projects.map((features, idx) => (
+          <FeatureCard key={features._id} {...features} idx={idx}/>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+export default Business
+
+
+
+='.repeat(60)
+FILE: src\components\button.jsx
+='.repeat(60)
+
+function Button({ stayles }) {
+  return (
+    <button
+      className={`py-3 px-6 font-sans-serif font-medium text-[18px] bg-blue-gradient rounded-[10px] outline-none 
+      
+      /* Hover effektlari */
+      hover:scale-105            /* Biroz kattalashadi */
+      hover:shadow-lg            /* Soya paydo bo'ladi */
+      hover:shadow-blue-500/50   /* Soya rangi ko'k bo'ladi */
+      
+      /* Effektlar yumshoq sodir bo'lishi uchun */
+      transition-all duration-300 ease-in-out 
+      
+      active:scale-95            /* Bosilganda biroz kichrayadi (klik effekti) */
+      
+      ${stayles}`}
+    >
+      CV ni yuklab olish
+    </button>
+  );
+}
+
+export default Button;
+
+// function Button({ stayles }) {
+//   return (
+//     <button
+//       className={`py-3 px-6 font-sans-serif font-medium text-[18px] bg-blue-gradient rounded-[10px] outline-none ${stayles}`}
+//     >
+//       CV ni yuklash
+//     </button>
+//   );
+// }
+
+// export default Button;
+
+
+
+='.repeat(60)
+FILE: src\components\client-card.jsx
+='.repeat(60)
+
+import { styles } from "../Util/style"
+
+function ClientCard({logo}) {
+  return (
+    <div className={`flex-1 ${styles.flexCenter} sm:min-w-48 min-w-30 m-5`}>
+        <img src={logo} alt="client-logo" className="sm:w-48 w-25 object-contain" />
+    </div>
+  )
+}
+
+export default ClientCard
+
+
+='.repeat(60)
+FILE: src\components\clients.jsx
+='.repeat(60)
+
+import { clients } from "../Util/constants"
+import { styles } from "../Util/style"
+import ClientCard from "./client-card"
+
+function Clients() {
+  return (
+    <div id="clients" className={`${styles.flexCenter} my-4`}>
+        <div className={`${styles.flexCenter} flex-wrap w-full`}>
+            {clients.map(client => (
+                <ClientCard key={client.id} logo={client.logo}/>
+            ))}
+        </div>
+    </div>
+  )
+}
+
+export default Clients
+
+
+='.repeat(60)
+FILE: src\components\cta.jsx
+='.repeat(60)
+
+import { styles } from "../Util/style"
+import Button from "./button"
+
+function CTA() {
+  return (
+    <div className={`${styles.flexCenter} ${styles.marginY} ${styles.padding} sm:flex-row flex-col rounded-[20px] box-shadow bg-dark-gradient`}>
+        <div className={`flex-1 flex-col`}>
+            <h2 className={`${styles.heading2}`}>Xizmatlarni sinab ko'rish!</h2>
+            <p className={`${styles.paragraph} max-w-137.5`}>
+                Lorem ipsum dolor sit amet consectetur adipisicing elit. Quam nostrum eligendi architecto at, accusantium explicabo temporibus incidunt! 
+            </p>
+        </div>
+
+        <div className={`${styles.flexCenter} sm:ml-10 ml-0 sm:mt-0 mt-10`}>
+            <Button />
+        </div>
+    </div>
+  )
+}
+
+export default CTA
+
+
+='.repeat(60)
+FILE: src\components\feature-card.jsx
+='.repeat(60)
+
+// import { features } from "../Util/constants";
+// import { styles } from "../Util/style";
+// import {
+//   Linkedin,
+//   Youtube,
+//   Send,
+//   Twitter,
+//   Instagram,
+//   Facebook,
+//   Github, // Dasturchilar uchun muhim!
+//   Globe, // Shaxsiy veb-sayt uchun
+//   Phone, // Telefon uchun
+//   Mail, // Email uchun
+// } from "lucide-react";
+
+// const iconMap = {
+//   Linkedin: Linkedin,
+//   Youtube: Youtube,
+//   Send: Send, // Telegram uchun
+//   Twitter: Twitter,
+//   Instagram: Instagram,
+//   Facebook: Facebook,
+//   Github: Github,
+//   Globe: Globe,
+//   Phone, // Telefon uchun
+//   Mail, // Email uchun
+// };
+
+// function FeatureCard({ icon, title, context, url, idx }) {
+//   const IconComponent = iconMap[icon] || Send;
+
+//   return (
+//     <a href={`${url}`} target="blank">
+//       <div
+//         className={`flex flex-row p-6 rounded-[20px] cursor-pointer feature-card ${idx !== features.length - 1 ? "mb-6" : "mb-0"}`}
+//       >
+//         <div
+//           className={`w-16 h-16 rounded-full ${styles.flexCenter} bg-lightBlue`}
+//         >
+//           {/* 3. Dinamik ikonkani shu yerda ishlatamiz */}
+//           <IconComponent
+//             size={32}
+//             color="white" /*className={`bg-blue-gradient`}*/
+//           />
+//           {/* <img src={icon} alt={title} className={`w-[50%] h-[50%] object-contain`} /> */}
+//         </div>
+
+//         <div className={`flex-1 flex flex-col ml-3`}>
+//           <h4
+//             className={`font-sans-serif font-semibold text-white text-[18px] leading-5.75 mb-1`}
+//           >
+//             {title}
+//           </h4>
+//           <p
+//             className={`font-sans-serif font-normal text-lightWhite text-[16px] leading-6`}
+//           >
+//             {context}
+//           </p>
+//         </div>
+//       </div>
+//     </a>
+//   );
+// }
+
+// export default FeatureCard;
+
+// -----------------------------------------------------------
+
+import React from "react";
+import { 
+  Linkedin, Youtube, Send, Twitter, Instagram, 
+  Facebook, Github, Globe, Phone, Mail 
+} from "lucide-react";
+import { features } from "../Util/constants";
+import { styles } from "../Util/style";
+
+// Ikonkalar xaritasi - komponent tashqarisida bo'lgani yaxshi
+const iconMap = {
+  Linkedin,
+  Youtube,
+  Send,      // Telegram uchun ko'p ishlatiladi
+  Twitter,
+  Instagram,
+  Facebook,
+  Github,
+  Globe,
+  Phone,
+  Mail,
+};
+
+/**
+ * FeatureCard Komponenti
+ * @param {string} icon - iconMap dagi kalit so'z
+ * @param {string} title - Karta sarlavhasi
+ * @param {string} context - Karta matni
+ * @param {string} url - Havola manzili
+ * @param {number} idx - Massivdagi tartib raqami
+ */
+const FeatureCard = ({ icon, title, context, url, idx }) => {
+  // Agar icon topilmasa, standart holatda 'Send' (Telegram) ikonkasini chiqaramiz
+  const IconComponent = iconMap[icon] || Send;
+
+  // Oxirgi element bo'lmasa pastki marjin qo'shish
+  const isLast = idx === features.length - 1;
+  const url_path = url === "" ? "https://t.me/Malenkiy_master" : url
+
+  return (
+    <a 
+      href={url_path} 
+      target="_blank" 
+      rel="noopener noreferrer" 
+      className="block no-underline"
+    >
+      <div
+        className={`flex flex-row p-6 rounded-[20px] cursor-pointer feature-card transition-all duration-300 hover:bg-slate-800 ${
+          isLast ? "mb-0" : "mb-6"
+        }`}
+      >
+        {/* Ikonka konteyneri */}
+        <div className={`w-16 h-16 rounded-full ${styles.flexCenter} bg-lightBlue shrink-0`}>
+          <IconComponent
+            size={32}
+            color="white"
+          />
+        </div>
+
+        {/* Matn qismi */}
+        <div className="flex-1 flex flex-col ml-4">
+          <h4 className="font-poppins font-semibold text-white text-[18px] leading-5.75 mb-1">
+            {title}
+          </h4>
+          <p className="font-poppins font-normal text-white text-[16px] leading-6">
+            {context}
+          </p>
+        </div>
+      </div>
+    </a>
+  );
+};
+
+export default FeatureCard;
+
+
+='.repeat(60)
+FILE: src\components\feedback-card.jsx
+='.repeat(60)
+
+// import { useEffect, useState } from "react";
+// import { quotes } from "../assets";
+// import { feedbacks } from "../Util/constants";
+
+// function FeedbackCard({ id, content, name, title, image, idx }) {
+//   const [data, setData] = useState([]);
+//   const [isLoading, setIsLoading] = useState(true); // Yuklanish holati
+//   const [error, setError] = useState(null);
+
+//   useEffect(() => {
+//     getData();
+//   }, []);
+
+//   const getData = async () => {
+//     try {
+//       setIsLoading(true);
+//       const response = await fetch("http://localhost:4039/get_all_WorkProjects", {
+//         method: "GET",
+//         headers: {
+//           "Content-type": "application/json",
+//         },
+//       });
+
+//       if (!response.ok) {
+//         throw new Error("Ma'lumot olishda xatolik yuz berdi");
+//       }
+
+//       const info = await response.json();
+
+//       if (Array.isArray(info) && info.length > 0) {
+//         setData(info);
+//       } else {
+//         setData([]);
+//       }
+//     } catch (error) {
+//       console.error("Xato:", error.message);
+//       setError(error.message);
+//     } finally {
+//       setIsLoading(false); // Yuklash tugadi (xato bo'lsa ham)
+//     }
+//   };
+
+//   // 1. Yuklanayotgan paytda ko'rinadigan qism
+//   if (isLoading) {
+//     return (
+//       <div className={`min-h-125 w-full ${styles.flexCenter}`}>
+//         <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+//       </div>
+//     );
+//   }
+
+//   // 2. Xatolik yuz berganda ko'rinadigan qism
+//   if (error) {
+//     return (
+//       <div className={`min-h-125 w-full ${styles.flexCenter} text-white`}>
+//         <p>Xatolik: {error}. Iltimos, serverni tekshiring.</p>
+//       </div>
+//     );
+//   }
+
+//   // 3. Ma'lumot muvaffaqiyatli kelganda
+//   const profile = data[0]; // Qisqaroq yozish uchun
+
+//   return (
+//     <div
+//       className={`flex justify-between flex-col px-10 py-12 rounded-[20px] max-w-92.5 md:mr-10 sm:mr-5 mr-0 my-5 cursor-pointer feedback-card`}
+//     >
+//       <img
+//         src={data[0]?.work_image}
+//         alt="quotes"
+//         className={`w-full h-full object-contain`}
+//       />{" "}
+//       {/* w-10.5 h-6.75 */}
+//       <p
+//         className={`font-sans-serif font-normal text-[18px] leading-8 text-white my-10`}
+//       >
+//         {content}
+//       </p>
+//       <div className="flex flex-row">
+//         <div
+//           className={`w-12.5 h-12.5 flex justify-center items-center bg-slate-400 rounded-full bg-dark-gradient`}
+//         >
+//           <p className="text-gradient text-[22px] font-semibold font-sans-serif">
+//             {name
+//               .split(" ")
+//               .map((c) => c[0])
+//               .join(".")
+//               .toUpperCase()}
+//           </p>
+//         </div>
+//         <div className="flex flex-col ml-4">
+//           <h4
+//             className={`font-sans-serif font-semibold text-[20px] leading-8 text-white`}
+//           >
+//             {name}
+//           </h4>
+//           <p
+//             className={`font-sans-serif font-normal text-[16px] leading-6 text-lightWhite`}
+//           >
+//             {title}
+//           </p>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// }
+
+// export default FeedbackCard;
+
+// -----------------------------------------------------------------------
+
+// import { styles } from "../Util/style";
+
+// function FeedbackCard({ work_image, work_content, work_title, work_stack }) {
+//   return (
+//     <div className={`flex justify-between flex-col px-10 py-12 rounded-[20px] max-w-92.5 md:mr-10 sm:mr-5 mr-0 my-5 cursor-pointer feedback-card transition-all duration-300 hover:bg-slate-800`}>
+      
+//       {/* Loyiha rasmi */}
+//       <div className="w-full h-45 mb-5">
+//         <img
+//           src={work_image}
+//           alt={work_title}
+//           className="w-full h-full object-cover rounded-lg"
+//         />
+//       </div>
+
+//       {/* Loyiha haqida qisqacha */}
+//       <p className="font-poppins font-normal text-[18px] leading-8 text-white my-5 italic">
+//         "{work_content}"
+//       </p>
+
+//       <div className="flex flex-row items-center mt-5">
+//         {/* Logotip yoki Title birinchi harflari */}
+//         <div className="w-12.5 h-12.5 flex justify-center items-center rounded-full bg-blue-gradient p-0.5">
+//           <div className="flex justify-center items-center w-full h-full bg-primary rounded-full">
+//              <p className="text-gradient text-[20px] font-bold">
+//                {work_title.charAt(0).toUpperCase()}
+//              </p>
+//           </div>
+//         </div>
+
+//         <div className="flex flex-col ml-4">
+//           <h4 className="font-poppins font-semibold text-[20px] leading-8 text-white uppercase tracking-wider">
+//             {work_title}
+//           </h4>
+//           <p className="font-poppins font-normal text-[16px] leading-6 text-white">
+//             {work_stack}
+//           </p>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// }
+
+// export default FeedbackCard;
+
+// -----------------------------------------------------------------------
+import { Github } from "lucide-react"; // Ikonka uchun
+
+function FeedbackCard({ work_image, work_content, work_title, work_stack, github_link }) {
+  
+  const handleCardClick = () => {
+    if (github_link) {
+      window.open(github_link, "_blank", "noopener,noreferrer");
+    } else {
+      console.log("GitHub link topilmadi");
+    }
+  };
+
+  return (
+    <div 
+      onClick={handleCardClick}
+      className={`flex justify-between flex-col px-10 py-12 rounded-[20px] max-w-92.5 md:mr-10 sm:mr-5 mr-0 my-5 cursor-pointer feedback-card transition-all duration-300 hover:bg-slate-800 hover:scale-[1.02] group`}
+    >
+      
+      {/* Loyiha rasmi - Hover effekti bilan */}
+      <div className="w-full h-45 mb-5 relative overflow-hidden rounded-lg">
+        <img
+          src={work_image}
+          alt={work_title}
+          className="w-full h-full object-cover"
+        />
+        {/* Hoverda chiqadigan qatlam */}
+        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+          <Github color="white" size={32} />
+        </div>
+      </div>
+
+      {/* Loyiha haqida qisqacha */}
+      <p className="font-poppins font-normal text-[18px] leading-8 text-white my-5 italic">
+        "{work_content}"
+      </p>
+
+      <div className="flex flex-row items-center mt-5">
+        {/* Logotip qismi */}
+        <div className="w-12.5 h-12.5 flex justify-center items-center rounded-full bg-blue-gradient p-0.5">
+          <div className="flex justify-center items-center w-full h-full bg-primary rounded-full">
+             <p className="text-gradient text-[20px] font-bold">
+               {work_title ? work_title.charAt(0).toUpperCase() : "P"}
+             </p>
+          </div>
+        </div>
+
+        <div className="flex flex-col ml-4">
+          <h4 className="font-poppins font-semibold text-[20px] leading-8 text-white uppercase tracking-wider">
+            {work_title}
+          </h4>
+          <p className="font-poppins font-normal text-[16px] leading-6 text-white">
+            {work_stack}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default FeedbackCard;
+
+
+='.repeat(60)
+FILE: src\components\footer.jsx
+='.repeat(60)
+
+import { logo } from "../assets"
+import { footerLinks, socialMedia } from "../Util/constants"
+import { styles } from "../Util/style"
+import LinkCard from "./link-card"
+
+function Footer() {
+  return (
+    <div className={`${styles.flexCenter} ${styles.paddingY} flex-col`}>
+        <div className={`${styles.flexStart} md:flex-row flex-col mb-8 w-full`}>
+            <div className={`flex-1 flex flex-col justify-start mr-10`}>
+                <img src={logo} alt="logo" className={`w-62.5 h-18 object-contain`}/>
+                <p className={`${styles.paragraph} mt-4 max-w-87.5`}>To'lovlarni oson, ishonchli va xavfsiz qilishning yangi usuli</p>
+            </div>
+
+            <div className={`flex-[1.5] w-full flex flex-row justify-between flex-wrap md:mt-0 mt-10`}>
+                {footerLinks.map(Linkss => (
+                    // <LinkCard key={idx} {...footerLinkss}  className={`flex flex-col ss:my-0 my-4 min-w-37.5`}/>
+                    <div key={Linkss.title} className={`flex flex-col ss:my0 my-4 min-w-37.5`}>
+                    <h4 className={`font-sans-serif font-medium text-[18px] leading-6.75 text-white`}>
+                        {Linkss.title}
+                    </h4>
+                    <ul className={`list-none mt-4`}>
+                        {Linkss.links.map((item, idx) => (
+                            <li key={item.name} className={`font-sans-serif font-normal text-[16px] leading-6 text-lightWhite hover:text-secondary cursor-pointer ${idx !== Linkss.links.length - 1 ? "mb-4" : "mb-0"}`}>{item.name}</li>
+                        ))}
+                    </ul>
+                    </div>
+                ))}
+            </div>
+        </div>
+
+        <div className={`w-full flex justify-between items-center md:flex-row flex-col pt-6 border-t border-t-[#3f3e45]`}>
+            <p className={`font-sans-serif font-normal text-center text-[18px] leading-6.75 text-white`}>
+                Copyright © 2023 SammiPay. All Right Reserved
+            </p>
+
+            <div className={`flex flex-row md:mt-0 mt-6`}>
+                {socialMedia.map((social, idx) => (
+                    <img key={social.id} src={social.icon} alt={social.id} className={`w-5 h-5.25 object-contain cursor-pointer ${idx !== socialMedia.length - 1 ? "mr-6" : "mr-0"}`}/>
+                ))}
+            </div>
+        </div>
+    </div>
+  )
+}
+
+export default Footer
+
+
+='.repeat(60)
+FILE: src\components\index.js
+='.repeat(60)
+
+export {default as Navbar} from "./navbar"
+export {default as Home} from "./about_me"
+export {default as Statistics} from "./statistics"
+export {default as Contract} from "./learn"
+export {default as Billing} from "./billing"
+export {default as Business} from "./business"
+export {default as CTA} from "./cta"
+export {default as Testimonials} from "./works"
+export {default as Clients} from "./clients"
+export {default as Footer} from "./footer"
+
+
+='.repeat(60)
+FILE: src\components\learn.jsx
+='.repeat(60)
+
+import { useState } from "react";
+import { card } from "../assets";
+import { layout, styles } from "../Util/style";
+import Sertificat_btn from "./sertifiqat_button";
+import { useEffect } from "react";
+import { ToastContainer, toast } from "react-toastify";
+
+function Learn() {
+  const [data, setData] = useState([]);
+  const [isLoading, setIsLoading] = useState(true); // Yuklanish holati
+  const [error, setError] = useState(null);
+  const [cvLoading, setCVLoading] = useState([]);
+
+  useEffect(() => {
+    getData();
+  }, []);
+
+  const getData = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch("https://portfolio-del-backend.onrender.com/get_all_learn", {
+        method: "GET",
+        headers: {
+          "Content-type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Ma'lumot olishda xatolik yuz berdi");
+      }
+
+      const info = await response.json();
+
+      if (Array.isArray(info) && info.length > 0) {
+        setData(info);
+      } else {
+        setData([]);
+      }
+    } catch (error) {
+      console.error("Xato:", error.message);
+      setError(error.message);
+    } finally {
+      setIsLoading(false); // Yuklash tugadi (xato bo'lsa ham)
+    }
+  };
+
+  // Button bosilganda ishlaydigan funksiya
+  const handleDownloadSertificat = async () => {
+    try {
+      setCVLoading(true);
+      const responsee = await fetch(
+        "https://portfolio-del-backend.onrender.com/get_all_CVandSertificat",
+      );
+
+      if (!responsee.ok) throw new Error("Ma'lumot olishda xatolik");
+
+      const dates = await responsee.json();
+
+      if (Array.isArray(dates) && dates.length > 0) {
+        // Bazadan kelgan linkni olamiz
+        const rawUrl = dates[0]?.sertificat_url;
+
+        if (rawUrl === "") {
+            return toast("Kursni bitirmadim hali")
+        }
+
+        if (rawUrl) {
+          // 1. Linkni yuklab olish formatiga keltiramiz (Google Drive bo'lsa)
+          const downloadUrl = rawUrl.replace(
+            "/view?usp=sharing",
+            "/uc?export=download",
+          );
+
+          // 2. Ko'rinmas 'a' tegi yaratamiz
+          const link = document.createElement("a");
+          link.href = downloadUrl;
+
+          // 3. Fayl nomini belgilaymiz
+          link.setAttribute("download", "Qudrat_Razzoqov_CV.pdf");
+
+          // 4. Tegni dokumentga qo'shib, uni avtomatik bosamiz
+          document.body.appendChild(link);
+          link.click();
+
+          // 5. Tegni o'chirib tashlaymiz
+          document.body.removeChild(link);
+        }
+      }
+    } catch (error) {
+      console.error("Xato:", error.message);
+    } finally {
+      setCVLoading(false);
+    }
+  };
+
+  // 1. Yuklanayotgan paytda ko'rinadigan qism
+  if (isLoading) {
+    return (
+      <div className={`min-h-125 w-full ${styles.flexCenter}`}>
+        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  // 2. Xatolik yuz berganda ko'rinadigan qism
+  if (error) {
+    return (
+      <div className={`min-h-125 w-full ${styles.flexCenter} text-white`}>
+        <p>Xatolik: {error}. Iltimos, serverni tekshiring.</p>
+      </div>
+    );
+  }
+
+  // 3. Ma'lumot muvaffaqiyatli kelganda
+  const profile = data[0]; // Qisqaroq yozish uchun
+
+  return (
+    <section id="learn" className={layout.section}>
+      <ToastContainer
+          position="top-left"
+          autoClose={4000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick={false}
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="light"
+        />
+      <div className={layout.sectionInfo}>
+        <h2 className={styles.heading2}>
+          {data[0]?.title_learn}
+          <br />{" "}
+        </h2>
+        <p className={`${styles.paragraph} max-w-137.5 mt-5`}>
+          {data[0]?.description_learn}
+        </p>
+        {/* Tugmaga onclick funksiyasini biriktiramiz */}
+        <div onClick={handleDownloadSertificat}>
+          <Sertificat_btn stayles="mt-10" title="CV yuklab olish" />
+        </div>
+        {/* <Sertificat_btn stayles={`mt-10 mb-5`} /> */}
+      </div>
+      <div className={layout.sectionImage}>
+        <img src={data[0]?.image_url} alt="card" className={`w-full h-full`} />
+      </div>
+    </section>
+  );
+}
+
+export default Learn;
+
+
+
+='.repeat(60)
+FILE: src\components\link-card.jsx
+='.repeat(60)
+
+function LinkCard(footerLinks) {
+  return (<div></div>
+    // <div className={`flex flex-col ss:my-0 my-4 min-w-37.5`}>
+    //   <h4 className={`font-sans-serif font-medium text-[118px] leading-6.75 text-white`}>
+    //     {footerLinks.title}
+    //   </h4>
+    // </div>
+  );
+}
+
+export default LinkCard;
+
+
+
+='.repeat(60)
+FILE: src\components\loader.jsx
+='.repeat(60)
+
+import { styles } from "../Util/style";
+
+const Loader = () => (
+  <div className={`w-full py-10 ${styles.flexCenter}`}>
+    <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+  </div>
+);
+
+export default Loader;
+
+
+='.repeat(60)
+FILE: src\components\navbar.jsx
+='.repeat(60)
+
+import { useState } from "react"
+import { close, logo, menu } from "../assets"
+import { navigationLinks } from "../Util/constants"
+import { styles } from "../Util/style"
+import { Menu, X } from 'lucide-react';
+
+function Navbar() {
+    const [toggleNav, setToggleNav] = useState(false)
+    const [active, setActive] = useState('home')
+
+   const consttoggleHandler = () => setToggleNav(prev => !prev)
+   const activeHandler = (id) => setActive(id)
+
+  return (
+    <div className={`w-full py-6 ${styles.flexBetween}`}>
+        {/* logo  */}
+        {/* <a href="/">
+            <img src={logo} alt="logo" className={`w-32.5 h-12 cursor-pointer`} />
+        </a> */}
+
+        {/* navigation link  */}
+        <ul className="list-none sm:flex hidden justify-end items-center flex-1">{navigationLinks.map((nav, idx) => (
+            <li 
+            key={nav.id} 
+            className={`
+             ${idx === navigationLinks.length - 1 ? "mr-0" : "mr-10"} 
+             ${active === nav.id ? "text-white" : "text-lightWhite"}
+             font-sans-serif font-normal cursor-pointer text-[30px] text-lightWhite hover:text-white transition-all duration-500`}
+             onClick={() => activeHandler(nav.id)}
+            >
+                <a href={`#${nav.id}`} >{nav.title}</a>
+            </li>
+        ))}</ul>
+
+        {/* Navigation btn  */}
+        <div className="sm:hidden flex flex-1 justify-end items-center">
+            {/* <img src={toggleNav ? close : menu} 
+            width={100} height={100} alt="nav" 
+            className="w-7.5 object-contain" 
+            onClick={consttoggleHandler} /> */}
+            {toggleNav ? <X size={32} onClick={consttoggleHandler} color="white"/> : <Menu color="white" size={32} onClick={consttoggleHandler}/>}
+         <div className={`${toggleNav ? "hidden" : "flex"} p-6 absolute top-19 right-0 left-0 w-full sidebar bg-black-gradient z-99`}>
+
+            <ul className="list-none flex justify-center items-center flex-1">{navigationLinks.map((nav, idx) => (
+                <li
+                    key={nav.id} 
+                    className={`
+                    ${idx === navigationLinks.length - 1 ? "mr-0" : "mr-10"} 
+                    ${active === nav.id ? "text-white" : "text-lightWhite"}
+                    font-sans-serif font-normal cursor-pointer text-[16px] text-lightWhite hover:text-white transition-all duration-500`}
+                    onClick={() => activeHandler(nav.id)}
+                    >
+                        <a href={`#${nav.id}`}>{nav.title}</a>
+                </li>
+            ))}
+            </ul>
+         </div>
+        </div>
+    </div>
+  )
+}
+
+export default Navbar
+
+
+
+='.repeat(60)
+FILE: src\components\sertifiqat_button.jsx
+='.repeat(60)
+
+function Sertificat_btn({ stayles }) {
+  return (
+    <button
+      className={`py-3 px-6 font-sans-serif font-medium text-[18px] bg-blue-gradient rounded-[10px] outline-none 
+      
+      /* Hover effektlari */
+      hover:scale-105            /* Biroz kattalashadi */
+      hover:shadow-lg            /* Soya paydo bo'ladi */
+      hover:shadow-blue-500/50   /* Soya rangi ko'k bo'ladi */
+      
+      /* Effektlar yumshoq sodir bo'lishi uchun */
+      transition-all duration-300 ease-in-out 
+      
+      active:scale-95            /* Bosilganda biroz kichrayadi (klik effekti) */
+      
+      ${stayles}`}
+    >
+      Sertifikatni ko'rish
+    </button>
+  );
+}
+
+export default Sertificat_btn;
+
+// function Sertificat_btn({ stayles }) {
+//   return (
+//     <button
+//       className={`py-3 px-6 font-sans-serif font-medium text-[18px] bg-blue-gradient rounded-[10px] outline-none ${stayles}`}
+//     >
+//       Sertifikatni ko'rish
+//     </button>
+//   );
+// }
+
+// export default Sertificat_btn;
+
+
+
+='.repeat(60)
+FILE: src\components\skills.jsx
+='.repeat(60)
+
+import { useState } from "react";
+import { layout, styles } from "../Util/style";
+import { 
+  Code2, 
+  Server, 
+  Database, 
+  Cpu, 
+  Layout, 
+  Smartphone, 
+  Globe, 
+  Layers, 
+  Terminal,
+  ShieldCheck,
+  Palette
+} from "lucide-react";
+import { useEffect } from "react";
+
+// const skillIconMap = {
+//   Server: Server,
+//   Database: Database,
+//   Cpu: Cpu,
+//   Code2: Code2,
+// };
+
+// const SkillCard = ({ title, items, icon, idx }) => {
+//   const IconComponent = skillIconMap[icon];
+//     const [data, setData] = useState([]);
+//   const [isLoading, setIsLoading] = useState(true); // Yuklanish holati
+//   const [error, setError] = useState(null);
+
+//   useEffect(() => {
+//     getData();
+//   }, []);
+
+//   const getData = async () => {
+//     try {
+//       setIsLoading(true);
+//       const response = await fetch("http://localhost:4039/get_all_skills", {
+//         method: "GET",
+//         headers: {
+//           "Content-type": "application/json",
+//         },
+//       });
+
+//       if (!response.ok) {
+//         throw new Error("Ma'lumot olishda xatolik yuz berdi");
+//       }
+
+//       const info = await response.json();
+
+//       if (Array.isArray(info) && info.length > 0) {
+//         setData(info);
+//       } else {
+//         setData([]);
+//       }
+//     } catch (error) {
+//       console.error("Xato:", error.message);
+//       setError(error.message);
+//     } finally {
+//       setIsLoading(false); // Yuklash tugadi (xato bo'lsa ham)
+//     }
+//   };
+
+//   // 1. Yuklanayotgan paytda ko'rinadigan qism
+//   if (isLoading) {
+//     return (
+//       <div className={`min-h-125 w-full ${styles.flexCenter}`}>
+//         <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+//       </div>
+//     );
+//   }
+
+//   // 2. Xatolik yuz berganda ko'rinadigan qism
+//   if (error) {
+//     return (
+//       <div className={`min-h-125 w-full ${styles.flexCenter} text-white`}>
+//         <p>Xatolik: {error}. Iltimos, serverni tekshiring.</p>
+//       </div>
+//     );
+//   }
+
+//   // 3. Ma'lumot muvaffaqiyatli kelganda
+//   const profile = data[0]; // Qisqaroq yozish uchun
+
+//   return (
+//     <div
+//       className={`flex flex-col p-6 rounded-[20px] feature-card min-w-62.5 transition-all duration-500 hover:scale-105`}
+//     >
+//       <div
+//         className={`w-12 h-12 rounded-full ${styles.flexCenter} bg-lightBlue mb-4`}
+//       >
+//         <IconComponent size={24} color="white" />
+//       </div>
+//       <h4 className="font-sans-serif font-semibold text-white text-[20px] mb-3">
+//         {data?.title_skill}
+//       </h4>
+//       <div className="flex flex-wrap gap-2">
+//         {data.map((item) => (
+//           <span
+//             key={item._id}
+//             className="bg-blue-gradient text-black text-[18px] px-3 py-1 rounded-full font-medium shadow-sm"
+//           >
+//             {item.skill_items}
+//           </span>
+//         ))}
+//       </div>
+//     </div>
+//   );
+// };
+
+// function Skills() {
+//   const [data, setData] = useState([]);
+//   const [isLoading, setIsLoading] = useState(true); // Yuklanish holati
+//   const [error, setError] = useState(null);
+
+//   useEffect(() => {
+//     getData();
+//   }, []);
+
+//   const getData = async () => {
+//     try {
+//       setIsLoading(true);
+//       const response = await fetch("http://localhost:4039/get_skills_title", {
+//         method: "GET",
+//         headers: {
+//           "Content-type": "application/json",
+//         },
+//       });
+
+//       if (!response.ok) {
+//         throw new Error("Ma'lumot olishda xatolik yuz berdi");
+//       }
+
+//       const info = await response.json();
+
+//       if (Array.isArray(info) && info.length > 0) {
+//         setData(info);
+//       } else {
+//         setData([]);
+//       }
+//     } catch (error) {
+//       console.error("Xato:", error.message);
+//       setError(error.message);
+//     } finally {
+//       setIsLoading(false); // Yuklash tugadi (xato bo'lsa ham)
+//     }
+//   };
+
+//   // 1. Yuklanayotgan paytda ko'rinadigan qism
+//   if (isLoading) {
+//     return (
+//       <div className={`min-h-125 w-full ${styles.flexCenter}`}>
+//         <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+//       </div>
+//     );
+//   }
+
+//   // 2. Xatolik yuz berganda ko'rinadigan qism
+//   if (error) {
+//     return (
+//       <div className={`min-h-125 w-full ${styles.flexCenter} text-white`}>
+//         <p>Xatolik: {error}. Iltimos, serverni tekshiring.</p>
+//       </div>
+//     );
+//   }
+
+//   // 3. Ma'lumot muvaffaqiyatli kelganda
+//   const profile = data[0]; // Qisqaroq yozish uchun
+
+//   return (
+//     <section id="skills" className={`${layout.section} flex-col`}>
+//       <div className={layout.sectionInfo}>
+//         <h2 className={styles.heading2}>
+//           {data[0]?.title_skill_header}{" "}
+//           <span className="text-gradient">{data[0]?.title_skill_color}</span>
+//         </h2>
+//         <p className={`${styles.paragraph} max-w-150 mt-5 mb-10`}>
+//           {data[0]?.skill_description}
+//         </p>
+//       </div>
+
+//       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 w-full">
+//         {skills.map((skill, idx) => (
+//           <SkillCard key={skill.id} {...skill} idx={idx} />
+//         ))}
+//       </div>
+//     </section>
+//   );
+// }
+
+// export default Skills;
+
+const skillIconMap = {
+  // Mavjudlari
+  Server: Server,     // Backend uchun
+  Database: Database, // Ma'lumotlar bazasi uchun
+  Cpu: Cpu,           // Tools yoki Hardware
+  Code2: Code2,       // Languages / Coding
+  Frontend: Layout,      // Frontend (Sayt strukturasi)
+  Mobile: Smartphone,    // Mobile App (Telefon ko'rinishi)
+  Web: Globe,            // Web texnologiyalar
+  FullStack: Layers,     // Arxiv yoki qatlamlar (Hamma qism)
+  DevOps: Terminal,      // Konsol yoki avtomatlashtirish
+  Security: ShieldCheck, // Xavfsizlik
+  Design: Palette,       // UI/UX yoki Dizayn
+};
+
+const SkillCard = ({ title_skill, skill_items, icon }) => {
+  // Agar icon bazada noto'g'ri bo'lsa, Code2 ni default qilamiz
+  const IconComponent = skillIconMap[icon] || Code2;
+
+  return (
+    <div className={`flex flex-col p-6 rounded-[20px] feature-card min-w-62.5 transition-all duration-500 hover:scale-105 bg-black-gradient`}>
+      <div className={`w-12 h-12 rounded-full ${styles.flexCenter} bg-dimBlue mb-4`}>
+        <IconComponent size={24} className="text-secondary" />
+      </div>
+      
+      <h4 className="font-poppins font-semibold text-white text-[25px] mb-3">
+        {title_skill}
+      </h4>
+
+      <div className="flex flex-wrap gap-2">
+        {skill_items.map((item, index) => (
+          <span
+            key={index}
+            className="bg-blue-gradient text-primary text-[18px] px-3 py-1 rounded-full font-medium shadow-sm"
+          >
+            {item}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+function Skills() {
+  const [skillsData, setSkillsData] = useState([]);
+  const [headerData, setHeaderData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchAllData = async () => {
+      try {
+        setIsLoading(true);
+        // 1. Skillarni olish
+        const skillsRes = await fetch("https://portfolio-del-backend.onrender.com/get_all_skills");
+        const skillsInfo = await skillsRes.json();
+
+        // 2. Sarlavhalarni olish (Agar bu boshqa endpoint bo'lsa)
+        const headerRes = await fetch("https://portfolio-del-backend.onrender.com/get_skills_title");
+        const headerInfo = await headerRes.json();
+
+        setSkillsData(Array.isArray(skillsInfo) ? skillsInfo : []);
+        setHeaderData(Array.isArray(headerInfo) ? headerInfo[0] : null);
+
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAllData();
+  }, []);
+
+  if (isLoading) return (
+    <div className="w-full py-20 flex justify-center">
+      <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+    </div>
+  );
+
+  if (error) return <div className="text-white text-center py-10">Xato: {error}</div>;
+
+  return (
+    <section id="skills" className={`${layout.section} flex-col`}>
+      {/* Sarlavha qismi */}
+      <div className={layout.sectionInfo}>
+        <h2 className={styles.heading2}>
+          {headerData?.title_skill_header || "My"} {" "}
+          <span className="text-gradient">{headerData?.title_skill_color || "Skills"}</span>
+        </h2>
+        <p className={`${styles.paragraph} max-w-150 mt-5 mb-10`}>
+          {headerData?.skill_description || "Professional skills and technologies I use."}
+        </p>
+      </div>
+
+      {/* Kartochkalar qismi */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 w-full">
+        {skillsData.map((skill) => (
+          <SkillCard 
+            key={skill._id} 
+            title_skill={skill.title_skill}
+            skill_items={skill.skill_items}
+            icon={skill.icon}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+export default Skills;
+
+
+
+='.repeat(60)
+FILE: src\components\statistics.jsx
+='.repeat(60)
+
+import { useState } from "react";
+import { styles } from "../Util/style"
+import { useEffect } from "react";
+
+function Statistics() {
+  const [data, setData] = useState([]);
+    const [isLoading, setIsLoading] = useState(true); // Yuklanish holati
+    const [error, setError] = useState(null);
+  
+    useEffect(() => {
+      getData();
+    }, []);
+  
+    const getData = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch("https://portfolio-del-backend.onrender.com/get_all_statistiks", {
+          method: "GET",
+          headers: {
+            "Content-type": "application/json",
+          },
+        });
+  
+        if (!response.ok) {
+          throw new Error("Ma'lumot olishda xatolik yuz berdi");
+        }
+  
+        const info = await response.json();
+        
+        if (Array.isArray(info) && info.length > 0) {
+          setData(info);
+        } else {
+          setData([]);
+        }
+      } catch (error) {
+        console.error("Xato:", error.message);
+        setError(error.message);
+      } finally {
+        setIsLoading(false); // Yuklash tugadi (xato bo'lsa ham)
+      }
+    };
+  
+    // 1. Yuklanayotgan paytda ko'rinadigan qism
+    if (isLoading) {
+      return (
+        <div className={`min-h-125 w-full ${styles.flexCenter}`}>
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      );
+    }
+  
+    // 2. Xatolik yuz berganda ko'rinadigan qism
+    if (error) {
+      return (
+        <div className={`min-h-125 w-full ${styles.flexCenter} text-white`}>
+          <p>Xatolik: {error}. Iltimos, serverni tekshiring.</p>
+        </div>
+      );
+    }
+  
+    // 3. Ma'lumot muvaffaqiyatli kelganda
+    const profile = data[0]; // Qisqaroq yozish uchun
+    console.log(data);
+    
+  
+  return (
+    <div className={`${styles.flexStart} flex-row flex-wrap sm:mb-20 mb-6`}>
+      {data.map(stat => (
+        <div key={stat?._id} className={`flex-1 flex justify-start items-center flex-row m-3`}>
+          <h4 className={`font-sans-serif font-semibold xs:text-[41px] text-[30px] xs:leading-13.25 leading-10.75 text-white`}>
+            {stat?.value}
+          </h4>
+          <p className={`font-sans-serif font-normal xs:text-[20px] text-[16px] xs:leading-6.5 leading-5.5 text-gradient uppercase ml-3`}>{stat?.title}</p>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+export default Statistics
+
+
+
+='.repeat(60)
+FILE: src\components\works.jsx
+='.repeat(60)
+
+// import { useEffect, useState } from "react";
+// import { feedbacks } from "../Util/constants"
+// import { styles } from "../Util/style"
+// import FeedbackCard from "./feedback-card"
+
+// function Works() {
+//   const [data, setData] = useState([]);
+//   const [isLoading, setIsLoading] = useState(true); // Yuklanish holati
+//   const [error, setError] = useState(null);
+//   const [projects, setProjects] = useState([]);
+
+//   const getData = async () => {
+//     try {
+//       setIsLoading(true);
+//       const response = await fetch("http://localhost:4039/get_all_works", {
+//         method: "GET",
+//         headers: {
+//           "Content-type": "application/json",
+//         },
+//       });
+
+//       if (!response.ok) {
+//         throw new Error("Ma'lumot olishda xatolik yuz berdi");
+//       }
+
+//       const info = await response.json();
+      
+//       if (Array.isArray(info) && info.length > 0) {
+//         setData(info);
+//       } else {
+//         setData([]);
+//       }
+//     } catch (error) {
+//       console.error("Xato:", error.message);
+//       setError(error.message);
+//     } finally {
+//       setIsLoading(false); // Yuklash tugadi (xato bo'lsa ham)
+//     }
+//   };
+
+//   // 1. Yuklanayotgan paytda ko'rinadigan qism
+//   if (isLoading) {
+//     return (
+//       <div className={`min-h-125 w-full ${styles.flexCenter}`}>
+//         <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+//       </div>
+//     );
+//   }
+
+//   // 2. Xatolik yuz berganda ko'rinadigan qism
+//   if (error) {
+//     return (
+//       <div className={`min-h-125 w-full ${styles.flexCenter} text-white`}>
+//         <p>Xatolik: {error}. Iltimos, serverni tekshiring.</p>
+//       </div>
+//     );
+//   }
+
+//   // 3. Ma'lumot muvaffaqiyatli kelganda
+//   const profile = data[0]; // Qisqaroq yozish uchun
+
+//   // proyektlarni ko'rsatish uchun 
+
+  
+//     const fetchProjects = async () => {
+//       try {
+//         setIsLoading(true);
+//         const response = await fetch("http://localhost:4039/get_all_WorkProjects");
+//         if (!response.ok) throw new Error("Loyihalarni yuklashda xatolik");
+        
+//         const dates = await response.json();
+//         setProjects(Array.isArray(dates) ? dates : []);
+//       } catch (err) {
+//         setError(err.message);
+//       } finally {
+//         setIsLoading(false);
+//       }
+//     };  
+
+//       useEffect(() => {
+//     getData();
+//     fetchProjects();
+//   }, []);
+
+//   return (
+//     <div id="portfolio" className={`${styles.paddingY} ${styles.flexCenter} flex-col relative`}>
+//         <div className={`absolute z-0 w-[60%] h-[60%] -right-[50%] rounded-full blue__gradient bottom-40`}/>
+
+//             <div className={`w-full flex justify-between items-center md:flex-row flex-col sm:mb-16 mb-6 relative z-1`}>
+//                 <h2 className={`${styles.heading2}`}>{data[0]?.work_header_title}</h2>
+//                 <div className={`w-full md:mt-0 mt-6`}>
+//                     <p className={`${styles.paragraph} text-left max-w-137.5`}>
+//                         {data[0]?.work_value}
+//                     </p>
+//                 </div>
+//             </div>
+//             <div className="flex flex-wrap sm:justify-start justify-center w-full feedback-container relative z-1">
+//         {projects.map((project) => (
+//           <FeedbackCard key={project._id} {...project} />
+//         ))}
+//       </div>
+//             {/* <div className={`flex flex-wrap sm:justify-start justify-center w-full relative z-1`}>
+//                 {projects.map((feedback, idx) => (
+//                    <FeedbackCard key={feedback._id} {...feedback} idx={idx} /> 
+//                 ))}
+//             </div> */}
+//     </div>
+//   )
+// }
+
+// export default Works
+
+// --------------------------------------------------------------------
+
+import { useEffect, useState } from "react";
+import { styles } from "../Util/style";
+import FeedbackCard from "./feedback-card";
+
+function Works() {
+  const [data, setData] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // 1. Funksiyalarni useEffect dan tepada e'lon qilamiz
+  const getData = async () => {
+    try {
+      const response = await fetch("https://portfolio-del-backend.onrender.com/get_all_works", {
+        method: "GET",
+        headers: { "Content-type": "application/json" },
+      });
+      if (!response.ok) throw new Error("Sarlavha olishda xatolik");
+      const info = await response.json();
+      setData(Array.isArray(info) ? info : []);
+    } catch (error) {
+      setError(error.message);
+    }
+  };
+
+  const fetchProjects = async () => {
+    try {
+      const response = await fetch("https://portfolio-del-backend.onrender.com/get_all_WorkProjects");
+      if (!response.ok) throw new Error("Loyihalarni yuklashda xatolik");
+      const dates = await response.json();
+      setProjects(Array.isArray(dates) ? dates : []);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  // 2. Barcha ma'lumotlarni bir vaqtda olish uchun useEffect
+  useEffect(() => {
+    const fetchAll = async () => {
+      setIsLoading(true);
+      await Promise.all([getData(), fetchProjects()]);
+      setIsLoading(false);
+    };
+    fetchAll();
+  }, []);
+
+  // 3. SHARTLI RETURNLAR (Barcha funksiyalar va Hooklardan keyin bo'lishi shart!)
+  if (isLoading) {
+    return (
+      <div className={`min-h-100 w-full ${styles.flexCenter}`}>
+        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className={`min-h-100 w-full ${styles.flexCenter} text-white`}>
+        <p>Xatolik: {error}. Iltimos, serverni tekshiring.</p>
+      </div>
+    );
+  }
+
+  // 4. ASOSIY RENDER
+  return (
+    <div id="portfolio" className={`${styles.paddingY} ${styles.flexCenter} flex-col relative`}>
+      <div className={`absolute z-0 w-[60%] h-[60%] -right-[50%] rounded-full blue__gradient bottom-40`} />
+
+      <div className={`w-full flex justify-between items-center md:flex-row flex-col sm:mb-16 mb-6 relative z-1`}>
+        <h2 className={`${styles.heading2}`}>
+          {data[0]?.work_header_title || "Mening ishlarim"}
+        </h2>
+        <div className={`w-full md:mt-0 mt-6`}>
+          <p className={`${styles.paragraph} text-left max-w-137.5`}>
+            {data[0]?.work_value}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap sm:justify-start justify-center w-full feedback-container relative z-1">
+        {projects.map((project) => (
+          <FeedbackCard key={project._id} {...project} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default Works;
+
+
+
+='.repeat(60)
+FILE: src\index.css
+='.repeat(60)
+
+@import "tailwindcss";
+
+:root {
+  --black-gradient: linear-gradient(144.39deg, #ffffff -278.56%, #6d6d6d -78.47%, #11101d 91.61%);
+  --card-shadow: 0px 20px 100px -10px rgba(66, 71, 91, 0.1);
+}
+
+* {
+  scroll-behavior: smooth;
+}
+
+@theme {
+  /* Videodagi maxsus ekran o'lchamlari (breakpoints) */
+  --breakpoint-xs: 480px;
+  --breakpoint-ss: 620px;
+  --breakpoint-sm: 768px;
+  --breakpoint-md: 1060px;
+  --breakpoint-lg: 1200px;
+  --breakpoint-xl: 1700px;
+
+  /* Agar videoda ranglar (colors) yoki shriftlar (fontFamily) 
+     qo'shilsa, ularni ham shu yerga yozishingiz mumkin. Masalan: */
+  /* --color-brand: #2563eb; */
+  /* --- RANGLAR (Colors) --- */
+  /* Videoda ranglar berilsa, ularni shu yerga qo'shasiz */
+  --color-primary: #00040f;
+  --color-secondary: #00f6ff;
+  --color-lightWhite: rgba(255, 255, 255, 0.7);
+  --color-lightBlue: rgba(9, 151, 124, 0.1);
+
+  /* --- SHRIFTLAR (Font Family) --- */
+  /* Videoda ishlatilgan shrift nomlarini shu yerga yozasiz */
+  --font-poppins: "Poppins", sans-serif;
+  --font-inter: "Inter", sans-serif;
+}
+
+.sidebar {
+  animation: slide-sidebar 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+@keyframes slide-sidebar {
+  0% {
+    transform: translateY(100px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+.bg-black-gradient {
+  background: linear-gradient(to top, #fff -278%, #6d6d6d -78%, #11101d 100%);
+}
+
+.bg-discount-gradient {
+  background: linear-gradient(130deg, #272727 0%, #11101d 100%);
+}
+
+.text-gradient {
+  background: radial-gradient(
+    64.18% 64.18% at 71.16% 35.69%,
+    #def9fa 0.89%,
+    #bef3f5 17.23%,
+    #9dedf0 42.04%,
+    #7de7eb 55.12%,
+    #5ce1e6 71.54%,
+    #33bbcf 100%
+  );
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.blue__gradient {
+  background: linear-gradient(180deg, rgba(188, 165, 255, 0) 0%, #214d76 100%);
+  filter: blur(123px);
+}
+
+.pink__gradient {
+  background: linear-gradient(90deg, #f4c4f3 0%, #fc67fa 100%);
+  filter: blur(900px);
+}
+
+.white__gradient {
+  background: rgba(255, 255, 255, 0.6);
+  filter: blur(750px);
+}
+
+.bg-blue-gradient {
+  background: linear-gradient(
+    157.81deg,
+    #def9fa 0.89%,
+    #bef3f5 17.23%,
+    #9dedf0 42.04%,
+    #7de7eb 55.12%,
+    #5ce1e6 71.54%,
+    #33bbcf 100%
+  );
+}
+
+.feature-card {
+  transition: all 0.5s ease;
+}
+
+.feature-card:hover,
+.feedback-card:hover {
+  background: var(--black-gradient);
+  box-shadow: var(--card-shadow);
+}
+
+.box-shadow {
+  box-shadow: 0px 20px 100px -10px rgba(66, 71, 91, 0.1);
+}
+
+.bg-dark-gradient {
+  background: linear-gradient(-168.39deg, #ffffff -278.56%, #6d6d6d -78.47%, #11101d 91.61%);
+}
+
+.feedback-card:last-child {
+  margin-right: 0;
+}
+
+
+
+='.repeat(60)
+FILE: src\main.jsx
+='.repeat(60)
+
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import './index.css'
+import App from './App.jsx'
+
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+)
+
+
+
+='.repeat(60)
+FILE: src\Util\constants.js
+='.repeat(60)
+
+import {
+  airbnb,
+  binance,
+  coinbase,
+  dropbox,
+  facebook,
+  instagram,
+  linkedin,
+  send,
+  shield,
+  star,
+  twitter,
+} from "../assets";
+// import { Linkedin, Youtube, Send } from 'lucide-react';
+
+export const navigationLinks = [
+  {
+    id: "home",
+    title: "Home",
+  },
+  {
+    id: "learn",
+    title: "Talim",
+  },
+  {
+    id: "skills",
+    title: "Ko'nikmalar",
+  },
+  {
+    id: "portfolio",
+    title: "Loyihalar",
+  },
+  {
+    id: "features",
+    title: "Aloqa",
+  },
+];
+
+export const statistics = [
+  {
+    id: 1,
+    title: "Ishlagan Loyihalarim",
+    value: "3",
+  },
+  {
+    id: 2,
+    title: "Kompaniyalar",
+    value: "1",
+  },
+  {
+    id: 3,
+    title: "Tajribam",
+    value: "1+",
+  },
+];
+
+export const features = [
+  {
+    id: 1,
+    icon: "Linkedin",
+    title: "Linkedin",
+    url: "https://www.linkedin.com/in/qudrat-razzoqov-8abb9b39b/?locale=ru_RU",
+    context: "",
+  },
+  {
+    id: 2,
+    icon: "Youtube",
+    title: "Youtube",
+    url: "https://www.youtube.com/results?search_query=somad+mebel",
+    context: "",
+  },
+  {
+    id: 3,
+    icon: "Send",
+    title: "Telegram",
+    url: "https://t.me/Malenkiy_master",
+    context: "",
+  },
+  {
+    id: 4,
+    icon: "Github",
+    title: "GitHub",
+    url: "",
+    context: "",
+  },
+  {
+    id: 5,
+    icon: "Mail",
+    title: "Email",
+    url: "",
+    context: "",
+  },
+  {
+    id: 6,
+    icon: "Phone",
+    title: "Telefon",
+    url: "+99888 790 06 77",
+    context: "+99888 790 06 77",
+  },
+];
+
+export const feedbacks = [
+  {
+    id: 1,
+    image: "https://i.postimg.cc/50R1zqCm/photo-2026-02-25-22-20-26.jpg",
+    content:
+      "Money is only a tool. It will take you wherever you wish, but it will nit replace you as the driver",
+    name: "Herman",
+    title: "FullStack",
+  },
+  {
+    id: 2,
+    image: "https://i.postimg.cc/8z0CfC8N/najot-talim-logo.webp",
+    content:
+      "Money makes your life easier. If you're lucky to have it, you're lucky.",
+    name: "Steve Mark",
+    title: "Backend",
+  },
+  {
+    id: 3,
+    image: "https://i.postimg.cc/bJ3X0NcJ/Снимок_экрана_2025_10_15_210352.png",
+    content:
+      "It is usually people in the money bussiness. finance, and international trade that are really rich.",
+    name: "Kenn Gallagher",
+    title: "Backend",
+  },
+];
+
+export const clients = [
+  {
+    id: 1,
+    logo: airbnb,
+  },
+  {
+    id: 2,
+    logo: binance,
+  },
+  {
+    id: 3,
+    logo: coinbase,
+  },
+  {
+    id: 4,
+    logo: dropbox,
+  },
+];
+
+export const footerLinks = [
+  {
+    title: "Jamiyat",
+    links: [
+      {
+        name: "Yordam Markazi",
+        link: "https://www.hoobank.com/help-center/",
+      },
+      {
+        name: "Hamkorlar",
+        link: "https://www.hoobank.com/partners/",
+      },
+      {
+        name: "Blog",
+        link: "https://www.sammi.ac/blog/",
+      },
+      {
+        name: "Takliflar",
+        link: "https://www.hoobank.com/suggestions/",
+      },
+      {
+        name: "Yangiliklar",
+        link: "https://www.hoobank.com/newsletters/",
+      },
+    ],
+  },
+  {
+    title: "Foydali Havolalar",
+    links: [
+      {
+        name: "kontent",
+        link: "https://www.sammi.ac/content/",
+      },
+      {
+        name: "Qanday Ishlaydi",
+        link: "https://www.sammi.ac/partners/",
+      },
+      {
+        name: "Shartlar & Xizmatlar",
+        link: "https://www.sammi.ac/suggestions/",
+      },
+    ],
+  },
+  {
+    title: "Hamkor",
+    links: [
+      {
+        name: "Bizning hamkorimiz",
+        link: "https://www.sammi.ac/our-partner/",
+      },
+      {
+        name: "Hamkor bo'ling",
+        link: "https://www.sammi.ac/become-a-partner/",
+      },
+    ],
+  },
+];
+
+export const socialMedia = [
+  {
+    id: "social-media-1",
+    icon: instagram,
+    link: `https://www.instagram.com`,
+  },
+  {
+    id: "social-media-2",
+    icon: facebook,
+    link: `https://www.facebook.com`,
+  },
+  {
+    id: "social-media-3",
+    icon: twitter,
+    link: `https://www.twitter.com`,
+  },
+  {
+    id: "social-media-4",
+    icon: linkedin,
+    link: `https://www.linkedin.com`,
+  },
+];
+
+export const skills = [
+  {
+    id: 1,
+    title: "Languages",
+    items: ["JavaScript", "TypeScript"],
+    icon: "Code2",
+  },
+  {
+    id: 2,
+    title: "Backend",
+    items: ["Node.js", "Express.js", "NestJS"],
+    icon: "Server",
+  },
+  {
+    id: 3,
+    title: "Databases",
+    items: ["MongoDB (NoSQL)", "PostgreSQL (SQL)"],
+    icon: "Database",
+  },
+  {
+    id: 4,
+    title: "Tools",
+    items: ["Git", "GitHub", "REST API", "JWT"],
+    icon: "Cpu",
+  },
+];
+
+
+
+='.repeat(60)
+FILE: src\Util\style.js
+='.repeat(60)
+
+export const styles = {
+    paddingX: "sm:px-16 px-6",
+    paddingY: "sm:py-16 py-6",
+    padding: "sm:px-16 px-6 sm:py-12 py-4",
+    marginX: "sm:mx-16 mx-6",
+    marginY: "sm:my-16 my-6",
+    container: "xl:max-w-[1280px] w-full",
+    flexCenter: "flex justify-center items-center",
+    flexStart: "flex justify-center items-start",
+    flexBetween: "flex justify-between items-center",
+    paragraph: "font-sans-serif font-normal text-lightWhite text-[18px]",
+    heading1: "font-sans-serif font-semibold ss:text-[52px] text-[52px] text-white ss:leading-[100px] leading-[75px]",
+    heading2: "font-sans-serif font-semibold xs:text-[48px] text-[40px] text-white xs:leading-[76.8px] leading-[66.8px] w-full",
+}
+
+export const layout = {
+    section: `flex md:flex-row flex-col ${styles.paddingY}`,
+    sectionReverse: `flex md:flex-row flex-col-reverse ${styles.paddingY}`,
+    sectionInfo: `flex-1 ${styles.flexStart} flex-col`,
+    sectionImage: `flex-1 flex ${styles.flexCenter} md:ml-10 ml-0 relative`,
+    sectionImageReverse: `flex-1 flex ${styles.flexCenter} md:mr-10 mr-0 md:mt-0 mt-10 relative`,
+}

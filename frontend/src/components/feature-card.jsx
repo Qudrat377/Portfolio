@@ -109,27 +109,29 @@ const FeatureCard = ({ icon, title, context, url, idx }) => {
       href={url_path} 
       target="_blank" 
       rel="noopener noreferrer" 
-      className="block no-underline"
+      className="block no-underline group"
     >
       <div
-        className={`flex flex-row p-6 rounded-[20px] cursor-pointer feature-card transition-all duration-300 hover:bg-slate-800 ${
-          isLast ? "mb-0" : "mb-6"
+        className={`flex flex-row items-center p-5 rounded-2xl cursor-pointer glassmorphism transition-all duration-300 hover:translate-x-2 hover:shadow-[0_0_20px_rgba(0,246,255,0.2)] hover:border-cyan-500/40 relative overflow-hidden ${
+          isLast ? "mb-0" : "mb-4"
         }`}
       >
+        <div className="absolute top-0 right-0 w-20 h-20 bg-cyan-500/10 rounded-full blur-2xl -mr-10 -mt-10 transition-transform duration-500 group-hover:scale-150"></div>
+        
         {/* Ikonka konteyneri */}
-        <div className={`w-16 h-16 rounded-full ${styles.flexCenter} bg-lightBlue shrink-0`}>
+        <div className={`w-14 h-14 rounded-xl flex justify-center items-center bg-gradient-to-br from-cyan-900/50 to-blue-900/50 border border-cyan-500/30 shrink-0 shadow-[0_0_10px_rgba(0,246,255,0.1)] group-hover:shadow-[0_0_20px_rgba(0,246,255,0.4)] transition-all duration-300 relative z-10`}>
           <IconComponent
-            size={32}
-            color="white"
+            size={24}
+            className="text-cyan-400 group-hover:text-white transition-colors duration-300"
           />
         </div>
 
         {/* Matn qismi */}
-        <div className="flex-1 flex flex-col ml-4">
-          <h4 className="font-poppins font-semibold text-white text-[18px] leading-5.75 mb-1">
+        <div className="flex-1 flex flex-col ml-5 relative z-10">
+          <h4 className="font-poppins font-semibold text-white text-[18px] leading-6 mb-1 group-hover:text-cyan-400 transition-colors duration-300">
             {title}
           </h4>
-          <p className="font-poppins font-normal text-white text-[16px] leading-6">
+          <p className="font-poppins font-normal text-gray-400 text-[14px] leading-5 line-clamp-2 group-hover:text-gray-200 transition-colors duration-300">
             {context}
           </p>
         </div>

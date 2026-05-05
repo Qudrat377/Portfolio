@@ -122,7 +122,6 @@ function Works() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // 1. Funksiyalarni useEffect dan tepada e'lon qilamiz
   const getData = async () => {
     try {
       const response = await fetch("https://portfolio-del-backend.onrender.com/api/v1/get_all_works", {
@@ -148,7 +147,6 @@ function Works() {
     }
   };
 
-  // 2. Barcha ma'lumotlarni bir vaqtda olish uchun useEffect
   useEffect(() => {
     const fetchAll = async () => {
       setIsLoading(true);
@@ -158,40 +156,44 @@ function Works() {
     fetchAll();
   }, []);
 
-  // 3. SHARTLI RETURNLAR (Barcha funksiyalar va Hooklardan keyin bo'lishi shart!)
   if (isLoading) {
     return (
-      <div className={`min-h-100 w-full ${styles.flexCenter}`}>
-        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className={`min-h-[50vh] w-full ${styles.flexCenter}`}>
+        <div className="flex flex-col items-center">
+          <div className="w-16 h-16 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin shadow-[0_0_15px_rgba(0,246,255,0.5)]"></div>
+          <p className="text-cyan-400 mt-4 font-poppins animate-pulse">Loyihalar yuklanmoqda...</p>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className={`min-h-100 w-full ${styles.flexCenter} text-white`}>
-        <p>Xatolik: {error}. Iltimos, serverni tekshiring.</p>
+      <div className={`min-h-[50vh] w-full ${styles.flexCenter} text-white`}>
+        <div className="glassmorphism p-8 rounded-2xl border-red-500/30">
+          <p className="text-red-400 font-poppins">Xatolik: {error}. Iltimos, serverni tekshiring.</p>
+        </div>
       </div>
     );
   }
 
-  // 4. ASOSIY RENDER
   return (
-    <div id="portfolio" className={`${styles.paddingY} ${styles.flexCenter} flex-col relative`}>
-      <div className={`absolute z-0 w-[60%] h-[60%] -right-[50%] rounded-full blue__gradient bottom-40`} />
+    <div id="portfolio" className={`${styles.paddingY} ${styles.flexCenter} flex-col relative min-h-[80vh]`}>
+      <div className={`absolute z-0 w-[60%] h-[60%] -right-[50%] rounded-full blue__gradient bottom-40 opacity-60`} />
 
-      <div className={`w-full flex justify-between items-center md:flex-row flex-col sm:mb-16 mb-6 relative z-1`}>
-        <h2 className={`${styles.heading2}`}>
+      <div className={`w-full flex justify-between items-center md:flex-row flex-col sm:mb-16 mb-6 relative z-10`}>
+        <h2 className={`${styles.heading2} flex items-center gap-4`}>
+          <span className="w-2 h-10 bg-cyan-400 rounded-full shadow-[0_0_10px_rgba(0,246,255,0.8)] hidden md:block"></span>
           {data[0]?.work_header_title || "Mening ishlarim"}
         </h2>
         <div className={`w-full md:mt-0 mt-6`}>
-          <p className={`${styles.paragraph} text-left max-w-137.5`}>
-            {data[0]?.work_value}
+          <p className={`${styles.paragraph} text-left max-w-[600px] text-gray-300`}>
+            {data[0]?.work_value || "Men yaratgan amaliy loyihalar va ishlarning namunasi."}
           </p>
         </div>
       </div>
 
-      <div className="flex flex-wrap sm:justify-start justify-center w-full feedback-container relative z-1">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 w-full relative z-10 justify-items-center">
         {projects.map((project) => (
           <FeedbackCard key={project._id} {...project} />
         ))}

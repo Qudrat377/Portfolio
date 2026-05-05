@@ -4,65 +4,65 @@ import { useEffect } from "react";
 
 function Statistics() {
   const [data, setData] = useState([]);
-    const [isLoading, setIsLoading] = useState(true); // Yuklanish holati
-    const [error, setError] = useState(null);
-  
-    useEffect(() => {
-      getData();
-    }, []);
-  
-    const getData = async () => {
-      try {
-        setIsLoading(true);
-        const response = await fetch("https://portfolio-del-backend.onrender.com/api/v1/get_all_statistiks", {
-          method: "GET",
-          headers: {
-            "Content-type": "application/json",
-          },
-        });
-  
-        if (!response.ok) {
-          throw new Error("Ma'lumot olishda xatolik yuz berdi");
-        }
-  
-        const info = await response.json();
-        
-        if (Array.isArray(info) && info.length > 0) {
-          setData(info);
-        } else {
-          setData([]);
-        }
-      } catch (error) {
-        console.error("Xato:", error.message);
-        setError(error.message);
-      } finally {
-        setIsLoading(false); // Yuklash tugadi (xato bo'lsa ham)
+  const [isLoading, setIsLoading] = useState(true); // Yuklanish holati
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    getData();
+  }, []);
+
+  const getData = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch("https://portfolio-del-backend.onrender.com/api/v1/get_all_statistiks", {
+        method: "GET",
+        headers: {
+          "Content-type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Ma'lumot olishda xatolik yuz berdi");
       }
-    };
-  
-    // 1. Yuklanayotgan paytda ko'rinadigan qism
-    if (isLoading) {
-      return (
-        <div className={`min-h-125 w-full ${styles.flexCenter}`}>
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-        </div>
-      );
+
+      const info = await response.json();
+
+      if (Array.isArray(info) && info.length > 0) {
+        setData(info);
+      } else {
+        setData([]);
+      }
+    } catch (error) {
+      console.error("Xato:", error.message);
+      setError(error.message);
+    } finally {
+      setIsLoading(false); // Yuklash tugadi (xato bo'lsa ham)
     }
-  
-    // 2. Xatolik yuz berganda ko'rinadigan qism
-    if (error) {
-      return (
-        <div className={`min-h-125 w-full ${styles.flexCenter} text-white`}>
-          <p>Xatolik: {error}. Iltimos, serverni tekshiring.</p>
-        </div>
-      );
-    }
-  
-    // 3. Ma'lumot muvaffaqiyatli kelganda
-    const profile = data[0]; // Qisqaroq yozish uchun
-    console.log(data);
-    
-  
+  };
+
+  // 1. Yuklanayotgan paytda ko'rinadigan qism
+  if (isLoading) {
+    return (
+      <div className={`min-h-125 w-full ${styles.flexCenter}`}>
+        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  // 2. Xatolik yuz berganda ko'rinadigan qism
+  if (error) {
+    return (
+      <div className={`min-h-125 w-full ${styles.flexCenter} text-white`}>
+        <p>Xatolik: {error}. Iltimos, serverni tekshiring.</p>
+      </div>
+    );
+  }
+
+  // 3. Ma'lumot muvaffaqiyatli kelganda
+  const profile = data[0]; // Qisqaroq yozish uchun
+  // console.log(data);
+
+
   return (
     <div className={`${styles.flexStart} flex-row flex-wrap sm:mb-20 mb-6`}>
       {data.map(stat => (

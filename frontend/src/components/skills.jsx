@@ -210,20 +210,22 @@ const SkillCard = ({ title_skill, skill_items, icon }) => {
   const IconComponent = skillIconMap[icon] || Code2;
 
   return (
-    <div className={`flex flex-col p-6 rounded-[20px] feature-card min-w-62.5 transition-all duration-500 hover:scale-105 bg-black-gradient`}>
-      <div className={`w-12 h-12 rounded-full ${styles.flexCenter} bg-dimBlue mb-4`}>
-        <IconComponent size={24} className="text-secondary" />
+    <div className={`flex flex-col p-6 rounded-2xl glassmorphism transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_10px_30px_rgba(0,246,255,0.15)] hover:border-cyan-500/40 group relative overflow-hidden h-full`}>
+      <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-3xl -mr-10 -mt-10 transition-transform duration-500 group-hover:scale-150"></div>
+      
+      <div className={`w-14 h-14 rounded-xl flex justify-center items-center bg-gradient-to-br from-cyan-900/50 to-blue-900/50 border border-cyan-500/30 mb-6 shadow-[0_0_15px_rgba(0,246,255,0.2)] group-hover:shadow-[0_0_25px_rgba(0,246,255,0.4)] transition-all duration-300 relative z-10`}>
+        <IconComponent size={28} className="text-cyan-400 group-hover:text-white transition-colors duration-300" />
       </div>
       
-      <h4 className="font-poppins font-semibold text-white text-[25px] mb-3">
+      <h4 className="font-poppins font-semibold text-white text-[22px] mb-4 relative z-10 group-hover:text-cyan-400 transition-colors duration-300">
         {title_skill}
       </h4>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 relative z-10 mt-auto">
         {skill_items.map((item, index) => (
           <span
             key={index}
-            className="bg-blue-gradient text-primary text-[18px] px-3 py-1 rounded-full font-medium shadow-sm"
+            className="bg-[#00040f]/60 border border-cyan-500/20 text-gray-300 text-[14px] px-3 py-1.5 rounded-lg font-medium shadow-sm transition-all duration-300 hover:border-cyan-400 hover:text-white hover:bg-cyan-900/30"
           >
             {item}
           </span>
@@ -247,7 +249,7 @@ function Skills() {
         const skillsRes = await fetch("https://portfolio-del-backend.onrender.com/api/v1/get_all_skills");
         const skillsInfo = await skillsRes.json();
 
-        // 2. Sarlavhalarni olish (Agar bu boshqa endpoint bo'lsa)
+        // 2. Sarlavhalarni olish
         const headerRes = await fetch("https://portfolio-del-backend.onrender.com/api/v1/get_skills_title");
         const headerInfo = await headerRes.json();
 
@@ -265,28 +267,40 @@ function Skills() {
   }, []);
 
   if (isLoading) return (
-    <div className="w-full py-20 flex justify-center">
-      <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+    <div className={`min-h-[50vh] w-full ${styles.flexCenter}`}>
+      <div className="flex flex-col items-center">
+        <div className="w-16 h-16 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin shadow-[0_0_15px_rgba(0,246,255,0.5)]"></div>
+        <p className="text-cyan-400 mt-4 font-poppins animate-pulse">Ko'nikmalar yuklanmoqda...</p>
+      </div>
     </div>
   );
 
-  if (error) return <div className="text-white text-center py-10">Xato: {error}</div>;
+  if (error) return (
+    <div className={`min-h-[50vh] w-full ${styles.flexCenter} text-white`}>
+      <div className="glassmorphism p-8 rounded-2xl border-red-500/30">
+        <p className="text-red-400 font-poppins">Xatolik: {error}. Iltimos, serverni tekshiring.</p>
+      </div>
+    </div>
+  );
 
   return (
-    <section id="skills" className={`${layout.section} flex-col`}>
+    <section id="skills" className={`${layout.section} flex-col relative min-h-[80vh]`}>
       {/* Sarlavha qismi */}
-      <div className={layout.sectionInfo}>
-        <h2 className={styles.heading2}>
-          {headerData?.title_skill_header || "My"} {" "}
-          <span className="text-gradient">{headerData?.title_skill_color || "Skills"}</span>
+      <div className={`${layout.sectionInfo} w-full items-center text-center`}>
+        <h2 className={`${styles.heading2} flex justify-center items-center gap-4`}>
+          {headerData?.title_skill_header || "Texnik"} {" "}
+          <span className="text-gradient drop-shadow-[0_0_10px_rgba(0,246,255,0.5)]">{headerData?.title_skill_color || "Ko'nikmalar"}</span>
         </h2>
-        <p className={`${styles.paragraph} max-w-150 mt-5 mb-10`}>
-          {headerData?.skill_description || "Professional skills and technologies I use."}
+        <p className={`${styles.paragraph} max-w-[600px] mt-5 mb-12 text-gray-300 leading-relaxed text-lg`}>
+          {headerData?.skill_description || "Professional faoliyatim davomida o'rgangan va ishlatgan asosiy texnologiyalarim."}
         </p>
       </div>
 
       {/* Kartochkalar qismi */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 w-full">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 w-full relative z-10">
+        <div className="absolute z-0 w-[40%] h-[40%] -left-10 bottom-40 pink__gradient opacity-30" />
+        <div className="absolute z-0 w-[40%] h-[40%] right-0 top-0 blue__gradient opacity-40" />
+        
         {skillsData.map((skill) => (
           <SkillCard 
             key={skill._id} 

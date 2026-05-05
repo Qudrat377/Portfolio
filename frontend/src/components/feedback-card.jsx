@@ -155,7 +155,7 @@
 // export default FeedbackCard;
 
 // -----------------------------------------------------------------------
-import { Github } from "lucide-react"; // Ikonka uchun
+import { Github } from "lucide-react";
 
 function FeedbackCard({ work_image, work_content, work_title, work_stack, github_link }) {
   
@@ -170,43 +170,48 @@ function FeedbackCard({ work_image, work_content, work_title, work_stack, github
   return (
     <div 
       onClick={handleCardClick}
-      className={`flex justify-between flex-col px-10 py-12 rounded-[20px] max-w-92.5 md:mr-10 sm:mr-5 mr-0 my-5 cursor-pointer feedback-card transition-all duration-300 hover:bg-slate-800 hover:scale-[1.02] group`}
+      className={`flex justify-between flex-col p-6 rounded-2xl w-full max-w-[380px] my-5 cursor-pointer glassmorphism transition-all duration-300 hover:-translate-y-2 hover:shadow-[0_10px_30px_rgba(0,246,255,0.15)] hover:border-cyan-500/40 group`}
     >
       
       {/* Loyiha rasmi - Hover effekti bilan */}
-      <div className="w-full h-45 mb-5 relative overflow-hidden rounded-lg">
+      <div className="w-full h-48 mb-5 relative overflow-hidden rounded-xl border border-white/5">
         <img
-          src={work_image}
+          src={work_image || "https://via.placeholder.com/400x300"}
           alt={work_title}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
         />
         {/* Hoverda chiqadigan qatlam */}
-        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <Github color="white" size={32} />
+        <div className="absolute inset-0 bg-[#00040f]/60 backdrop-blur-sm flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
+          <div className="bg-cyan-500/20 p-4 rounded-full border border-cyan-400/50 mb-2 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
+            <Github color="#00f6ff" size={32} />
+          </div>
+          <span className="text-cyan-400 font-poppins font-medium text-sm transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300 delay-75">
+            Loyihani ko'rish
+          </span>
         </div>
       </div>
 
       {/* Loyiha haqida qisqacha */}
-      <p className="font-poppins font-normal text-[18px] leading-8 text-white my-5 italic">
-        "{work_content}"
+      <p className="font-poppins font-normal text-[16px] leading-7 text-gray-300 mb-6 flex-grow line-clamp-3">
+        {work_content}
       </p>
 
-      <div className="flex flex-row items-center mt-5">
+      <div className="flex flex-row items-center mt-auto border-t border-white/10 pt-4">
         {/* Logotip qismi */}
-        <div className="w-12.5 h-12.5 flex justify-center items-center rounded-full bg-blue-gradient p-0.5">
-          <div className="flex justify-center items-center w-full h-full bg-primary rounded-full">
-             <p className="text-gradient text-[20px] font-bold">
+        <div className="w-12 h-12 flex justify-center items-center rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 p-[2px] shadow-[0_0_10px_rgba(0,246,255,0.3)]">
+          <div className="flex justify-center items-center w-full h-full bg-[#00040f] rounded-full">
+             <p className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 text-[20px] font-bold">
                {work_title ? work_title.charAt(0).toUpperCase() : "P"}
              </p>
           </div>
         </div>
 
-        <div className="flex flex-col ml-4">
-          <h4 className="font-poppins font-semibold text-[20px] leading-8 text-white uppercase tracking-wider">
-            {work_title}
+        <div className="flex flex-col ml-4 overflow-hidden">
+          <h4 className="font-poppins font-semibold text-[18px] leading-6 text-white uppercase tracking-wider truncate">
+            {work_title || "Loyiha Nomi"}
           </h4>
-          <p className="font-poppins font-normal text-[16px] leading-6 text-white">
-            {work_stack}
+          <p className="font-poppins font-normal text-[14px] leading-5 text-cyan-400 mt-1 truncate">
+            {work_stack || "Texnologiyalar"}
           </p>
         </div>
       </div>

@@ -103,9 +103,9 @@ import { ToastContainer, toast } from "react-toastify";
 
 function About_me() {
   const [data, setData] = useState([]);
-  const [isLoading, setIsLoading] = useState(true); // Yuklanish holati
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [cvLoading, setCVLoading] = useState([]);
+  const [cvLoading, setCVLoading] = useState(false);
 
   useEffect(() => {
     getData();
@@ -136,16 +136,16 @@ function About_me() {
       console.error("Xato:", error.message);
       setError(error.message);
     } finally {
-      setIsLoading(false); // Yuklash tugadi (xato bo'lsa ham)
+      setIsLoading(false);
     }
   };
 
-  // Button bosilganda ishlaydigan funksiya
   const handleDownloadCV = async () => {
     try {
       setCVLoading(true);
+      // FIXED THE URL TO INCLUDE /api/v1/
       const responsee = await fetch(
-        "https://portfolio-del-backend.onrender.com/get_all_CVandSertificat",
+        "https://portfolio-del-backend.onrender.com/api/v1/get_all_CVandSertificat",
       );
 
       if (!responsee.ok) throw new Error("Ma'lumot olishda xatolik");
@@ -153,120 +153,128 @@ function About_me() {
       const dates = await responsee.json();
 
       if (Array.isArray(dates) && dates.length > 0) {
-        // Bazadan kelgan linkni olamiz
         const rawUrl = dates[0]?.cv_url;
 
-        if (rawUrl === "") {
+        if (!rawUrl || rawUrl === "") {
           return toast("CV hali yuklanmagan");
         }
 
-        if (rawUrl) {
-          // 1. Linkni yuklab olish formatiga keltiramiz (Google Drive bo'lsa)
-          const downloadUrl = rawUrl.replace(
-            "/view?usp=sharing",
-            "/uc?export=download",
-          );
+        const downloadUrl = rawUrl.replace(
+          "/view?usp=sharing",
+          "/uc?export=download",
+        );
 
-          // 2. Ko'rinmas 'a' tegi yaratamiz
-          const link = document.createElement("a");
-          link.href = downloadUrl;
-
-          // 3. Fayl nomini belgilaymiz
-          link.setAttribute("download", "Qudrat_Razzoqov_CV.pdf");
-
-          // 4. Tegni dokumentga qo'shib, uni avtomatik bosamiz
-          document.body.appendChild(link);
-          link.click();
-
-          // 5. Tegni o'chirib tashlaymiz
-          document.body.removeChild(link);
-        }
+        const link = document.createElement("a");
+        link.href = downloadUrl;
+        link.setAttribute("download", "Qudrat_Razzoqov_CV.pdf");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        toast("CV topilmadi");
       }
     } catch (error) {
       console.error("Xato:", error.message);
+      toast.error("Xatolik yuz berdi");
     } finally {
       setCVLoading(false);
     }
   };
 
-  // 1. Yuklanayotgan paytda ko'rinadigan qism
   if (isLoading) {
     return (
-      <div className={`min-h-125 w-full ${styles.flexCenter}`}>
-        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className={`min-h-[80vh] w-full ${styles.flexCenter}`}>
+        <div className="flex flex-col items-center">
+          <div className="w-16 h-16 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin shadow-[0_0_15px_rgba(0,246,255,0.5)]"></div>
+          <p className="text-cyan-400 mt-4 font-poppins animate-pulse">Yuklanmoqda...</p>
+        </div>
       </div>
     );
   }
 
-  // 2. Xatolik yuz berganda ko'rinadigan qism
   if (error) {
     return (
-      <div className={`min-h-125 w-full ${styles.flexCenter} text-white`}>
-        <p>Xatolik: {error}. Iltimos, serverni tekshiring.</p>
+      <div className={`min-h-[80vh] w-full ${styles.flexCenter} text-white`}>
+        <div className="glassmorphism p-8 rounded-2xl border-red-500/30">
+          <p className="text-red-400 font-poppins">Xatolik: {error}. Iltimos, serverni tekshiring.</p>
+        </div>
       </div>
     );
   }
 
-  // 3. Ma'lumot muvaffaqiyatli kelganda
-  const profile = data[0]; // Qisqaroq yozish uchun
+  const profile = data[0];
 
   return (
     <section
       id="home"
-      className={`flex md:flex-row flex-col ${styles.paddingY}`}
+      className={`flex md:flex-row flex-col-reverse ${styles.paddingY} relative items-center min-h-[90vh]`}
     >
       <ToastContainer
-          position="top-left"
-          autoClose={4000}
-          hideProgressBar={false}
-          newestOnTop={false}
-          closeOnClick={false}
-          rtl={false}
-          pauseOnFocusLoss
-          draggable
-          pauseOnHover
-          theme="light"
-        />
-      {/* Rasm qismi */}
-
-      <div className={`flex-1 ${styles.flexCenter} md:my-0 my-10 relative`}>
-        <img
-          src={profile?.about_me_image}
-          alt="me"
-          className="w-75 h-75 ss:w-112.5 ss:h-112.5 object-cover rounded-full relative z-10 border-4 border-blue-500 shadow-2xl"
-        />
-        {/* Gradientlar */}
-        <div className="absolute z-0 w-[40%] h-[35%] top-0 pink__gradient" />
-        <div className="absolute z-1 w-[80%] h-[80%] rounded-full bottom-40 white__gradient" />
-        <div className="absolute z-0 w-[50%] h-[50%] right-20 bottom-20 blue__gradient" />
-      </div>
+        position="top-right"
+        autoClose={4000}
+        theme="dark"
+        toastClassName="glassmorphism !bg-[#00040f]/90 !text-white !border !border-cyan-500/30"
+      />
 
       {/* Ma'lumotlar qismi */}
-      <div
-        className={`flex-1 ${styles.flexStart} flex-col xl:px-0 sm:px-16 px-6`}
-      >
+      <div className={`flex-1 ${styles.flexStart} flex-col xl:px-0 sm:px-16 px-6 z-10`}>
         <div className="w-full">
-          <h1 className={`${styles.heading1}`}>
-            {profile?.salom} <br className="sm:block hidden" />
-            <span className="text-gradient">{profile?.fullName}</span>
+          <h1 className={`${styles.heading1} tracking-wide`}>
+            {profile?.salom || "Salom,"} <br className="sm:block hidden" />
+            <span className="text-gradient drop-shadow-[0_0_10px_rgba(0,246,255,0.5)] font-bold">
+              {profile?.fullName || "Men Qudratman"}
+            </span>
           </h1>
-          <h2 className="text-white font-semibold text-[32px] mt-2">
-            {profile?.work_title}
+          <h2 className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 font-semibold text-[24px] ss:text-[32px] mt-4 mb-2 animate-pulse-glow w-max px-4 py-1 rounded-lg border border-cyan-500/30 bg-cyan-900/20 shadow-[0_0_15px_rgba(0,246,255,0.2)]">
+            {profile?.work_title || "Dasturchi"}
           </h2>
         </div>
 
-        <p className={`${styles.paragraph} mt-5 max-w-117.5`}>
-          {profile?.work_description}
+        <p className={`${styles.paragraph} mt-5 max-w-[500px] text-gray-300 leading-relaxed text-lg`}>
+          {profile?.work_description || "O'z ustimda ishlashni va yangi texnologiyalarni o'rganishni yoqtiraman."}
         </p>
 
         {/* Tugmaga onclick funksiyasini biriktiramiz */}
-        <div onClick={handleDownloadCV}>
-          <Button stayles="mt-10" title="CV yuklab olish" />
+        <div 
+          onClick={cvLoading ? null : handleDownloadCV}
+          className={`mt-10 group relative inline-flex items-center justify-center cursor-pointer ${cvLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+        >
+          <div className="absolute transition-all duration-1000 opacity-70 -inset-px bg-gradient-to-r from-[#44BCFF] via-[#FF44EC] to-[#FF675E] rounded-xl blur-lg group-hover:opacity-100 group-hover:-inset-1 group-hover:duration-200 animate-tilt"></div>
+          <button className="relative inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-white transition-all duration-200 bg-[#00040f] border border-transparent rounded-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 shadow-[0_0_20px_rgba(0,246,255,0.3)] group-hover:shadow-[0_0_30px_rgba(0,246,255,0.6)]">
+            {cvLoading ? (
+              <span className="flex items-center gap-2">
+                <svg className="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeDasharray="31.415, 31.415" className="opacity-25"></circle>
+                  <path d="M12 2C6.477 2 2 6.477 2 12h4c0-3.314 2.686-6 6-6V2z" fill="currentColor" className="opacity-75"></path>
+                </svg>
+                Yuklanmoqda...
+              </span>
+            ) : "CV Yuklab Olish"}
+          </button>
         </div>
-        {/* <Button stayles="mt-10" /> */}
+      </div>
+
+      {/* Rasm qismi */}
+      <div className={`flex-1 ${styles.flexCenter} md:my-0 my-16 relative z-10`}>
+        <div className="relative w-64 h-64 ss:w-80 ss:h-80 md:w-96 md:h-96">
+          {/* Aylanuvchi halqalar */}
+          <div className="absolute inset-0 rounded-full border-[3px] border-cyan-500/30 animate-[spin_10s_linear_infinite]"></div>
+          <div className="absolute inset-2 rounded-full border-[3px] border-blue-500/30 border-t-cyan-400 animate-[spin_7s_linear_infinite_reverse]"></div>
+          
+          <img
+            src={profile?.about_me_image || "https://via.placeholder.com/400"}
+            alt="me"
+            className="w-full h-full object-cover rounded-full relative z-10 border-4 border-cyan-400/50 shadow-[0_0_30px_rgba(0,246,255,0.4)] animate-float p-1 bg-[#00040f]"
+          />
+        </div>
+        
+        {/* Gradientlar */}
+        <div className="absolute z-0 w-[50%] h-[50%] right-20 bottom-20 blue__gradient opacity-70 animate-pulse" />
+        <div className="absolute z-0 w-[40%] h-[35%] top-0 pink__gradient opacity-50" />
       </div>
     </section>
   );
 }
 
 export default About_me;
+

@@ -27,10 +27,10 @@ function App() {
       <div className={`bg-primary ${styles.paddingX} ${styles.flexStart}`}>
         <div className={`${styles.container}`}>
             <Statistics />
+            <Works />
             <Learn />
             {/* <Billing /> */}
             <Skills />
-            <Works />
             <Business />
             {/* <Clients /> */}
             {/* <CTA /> */}
