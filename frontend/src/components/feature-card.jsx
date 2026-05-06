@@ -99,10 +99,7 @@ const iconMap = {
 const FeatureCard = ({ icon, title, context, url, idx }) => {
   // Agar icon topilmasa, standart holatda 'Send' (Telegram) ikonkasini chiqaramiz
   const IconComponent = iconMap[icon] || Send;
-
-  // Oxirgi element bo'lmasa pastki marjin qo'shish
-  const isLast = idx === features.length - 1;
-  const url_path = url === "" ? "https://t.me/Malenkiy_master" : url
+  const url_path = url === "" ? "https://t.me/Malenkiy_master" : url;
 
   return (
     <a 
@@ -112,29 +109,27 @@ const FeatureCard = ({ icon, title, context, url, idx }) => {
       className="block no-underline group"
     >
       <div
-        className={`flex flex-row items-center p-5 rounded-2xl cursor-pointer glassmorphism transition-all duration-300 hover:translate-x-2 hover:shadow-[0_0_20px_rgba(0,246,255,0.2)] hover:border-cyan-500/40 relative overflow-hidden ${
-          isLast ? "mb-0" : "mb-4"
-        }`}
+        className={`flex flex-col items-center justify-center p-6 rounded-[30px] cursor-pointer glassmorphism transition-all duration-500 hover:-translate-y-3 hover:shadow-[0_15px_40px_rgba(0,246,255,0.2)] hover:bg-cyan-900/20 group w-36 h-36 sm:w-40 sm:h-40 relative overflow-hidden`}
       >
-        <div className="absolute top-0 right-0 w-20 h-20 bg-cyan-500/10 rounded-full blur-2xl -mr-10 -mt-10 transition-transform duration-500 group-hover:scale-150"></div>
+        <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/20 rounded-full blur-2xl -mr-10 -mt-10 transition-transform duration-500 group-hover:scale-150 group-hover:bg-cyan-400/30"></div>
         
         {/* Ikonka konteyneri */}
-        <div className={`w-14 h-14 rounded-xl flex justify-center items-center bg-gradient-to-br from-cyan-900/50 to-blue-900/50 border border-cyan-500/30 shrink-0 shadow-[0_0_10px_rgba(0,246,255,0.1)] group-hover:shadow-[0_0_20px_rgba(0,246,255,0.4)] transition-all duration-300 relative z-10`}>
+        <div className={`w-16 h-16 rounded-full flex justify-center items-center bg-gradient-to-br from-[#00040f] to-[#00102a] border border-cyan-500/40 shadow-[0_0_15px_rgba(0,246,255,0.1)] group-hover:shadow-[0_0_25px_rgba(0,246,255,0.5)] group-hover:border-cyan-400 transition-all duration-300 relative z-10 mb-3`}>
           <IconComponent
-            size={24}
-            className="text-cyan-400 group-hover:text-white transition-colors duration-300"
+            size={28}
+            className="text-gray-400 group-hover:text-[#00f6ff] transition-colors duration-300"
           />
         </div>
 
         {/* Matn qismi */}
-        <div className="flex-1 flex flex-col ml-5 relative z-10">
-          <h4 className="font-poppins font-semibold text-white text-[18px] leading-6 mb-1 group-hover:text-cyan-400 transition-colors duration-300">
-            {title}
-          </h4>
-          <p className="font-poppins font-normal text-gray-400 text-[14px] leading-5 line-clamp-2 group-hover:text-gray-200 transition-colors duration-300">
-            {context}
-          </p>
-        </div>
+        <h4 className="font-poppins font-semibold text-white text-[15px] sm:text-[16px] text-center group-hover:text-cyan-400 transition-colors duration-300 relative z-10">
+          {title}
+        </h4>
+        
+        {/* Context qismi tooltip sifatida yoki juda kichik matn ko'rinishida yashirilgan bo'lishi ham mumkin */}
+        <p className="font-poppins text-gray-400 text-[10px] sm:text-[11px] text-center mt-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300 absolute bottom-3 px-2 line-clamp-1 w-full left-0">
+          {context}
+        </p>
       </div>
     </a>
   );

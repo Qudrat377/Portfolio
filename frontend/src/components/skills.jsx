@@ -210,22 +210,26 @@ const SkillCard = ({ title_skill, skill_items, icon }) => {
   const IconComponent = skillIconMap[icon] || Code2;
 
   return (
-    <div className={`flex flex-col p-6 rounded-2xl glassmorphism transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_10px_30px_rgba(0,246,255,0.15)] hover:border-cyan-500/40 group relative overflow-hidden h-full`}>
-      <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-3xl -mr-10 -mt-10 transition-transform duration-500 group-hover:scale-150"></div>
+    <div className={`flex flex-col items-center p-8 rounded-[30px] glassmorphism transition-all duration-500 hover:-translate-y-3 hover:shadow-[0_15px_40px_rgba(0,246,255,0.2)] hover:bg-cyan-900/10 hover:border-cyan-500/50 group relative overflow-hidden h-full border border-white/5 w-full`}>
+      {/* Karta orqasidagi nur */}
+      <div className="absolute top-0 right-0 w-40 h-40 bg-cyan-500/10 rounded-full blur-3xl -mr-10 -mt-10 transition-all duration-700 group-hover:scale-150 group-hover:bg-cyan-400/20"></div>
       
-      <div className={`w-14 h-14 rounded-xl flex justify-center items-center bg-gradient-to-br from-cyan-900/50 to-blue-900/50 border border-cyan-500/30 mb-6 shadow-[0_0_15px_rgba(0,246,255,0.2)] group-hover:shadow-[0_0_25px_rgba(0,246,255,0.4)] transition-all duration-300 relative z-10`}>
-        <IconComponent size={28} className="text-cyan-400 group-hover:text-white transition-colors duration-300" />
+      {/* Ikonka */}
+      <div className={`w-20 h-20 rounded-[24px] flex justify-center items-center bg-gradient-to-br from-[#00040f] to-[#00102a] border border-cyan-500/30 mb-6 shadow-[0_0_15px_rgba(0,246,255,0.1)] group-hover:shadow-[0_0_30px_rgba(0,246,255,0.5)] group-hover:border-cyan-400 transition-all duration-300 relative z-10`}>
+        <IconComponent size={36} className="text-gray-400 group-hover:text-[#00f6ff] transition-colors duration-300" />
       </div>
       
-      <h4 className="font-poppins font-semibold text-white text-[22px] mb-4 relative z-10 group-hover:text-cyan-400 transition-colors duration-300">
+      {/* Sarlavha */}
+      <h4 className="font-poppins font-semibold text-white text-[22px] mb-5 text-center relative z-10 group-hover:text-cyan-400 transition-colors duration-300 tracking-wide">
         {title_skill}
       </h4>
 
-      <div className="flex flex-wrap gap-2 relative z-10 mt-auto">
+      {/* Texnologiyalar ro'yxati markazlashgan holda */}
+      <div className="flex flex-wrap justify-center gap-2.5 relative z-10 mt-auto">
         {skill_items.map((item, index) => (
           <span
             key={index}
-            className="bg-[#00040f]/60 border border-cyan-500/20 text-gray-300 text-[14px] px-3 py-1.5 rounded-lg font-medium shadow-sm transition-all duration-300 hover:border-cyan-400 hover:text-white hover:bg-cyan-900/30"
+            className="bg-[#00040f]/80 border border-cyan-500/20 text-gray-300 text-[14px] px-4 py-1.5 rounded-full font-medium shadow-sm transition-all duration-300 hover:border-cyan-400 hover:text-[#00f6ff] hover:bg-cyan-900/40 hover:shadow-[0_0_10px_rgba(0,246,255,0.3)] hover:-translate-y-0.5 cursor-default"
           >
             {item}
           </span>
@@ -284,30 +288,32 @@ function Skills() {
   );
 
   return (
-    <section id="skills" className={`${layout.section} flex-col relative min-h-[80vh]`}>
-      {/* Sarlavha qismi */}
-      <div className={`${layout.sectionInfo} w-full items-center text-center`}>
-        <h2 className={`${styles.heading2} flex justify-center items-center gap-4`}>
+    <section id="skills" className={`flex flex-col items-center justify-center relative min-h-[80vh] py-20`}>
+      {/* Sarlavha qismi - Markazlashgan xuddi Set Me kabi */}
+      <div className={`flex flex-col items-center text-center z-10 mb-16 w-full max-w-[800px]`}>
+        <h2 className={`${styles.heading2} font-bold tracking-wide flex justify-center items-center gap-3`}>
           {headerData?.title_skill_header || "Texnik"} {" "}
           <span className="text-gradient drop-shadow-[0_0_10px_rgba(0,246,255,0.5)]">{headerData?.title_skill_color || "Ko'nikmalar"}</span>
         </h2>
-        <p className={`${styles.paragraph} max-w-[600px] mt-5 mb-12 text-gray-300 leading-relaxed text-lg`}>
+        <div className="w-24 h-1 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full mt-4 mb-6 shadow-[0_0_10px_rgba(0,246,255,0.8)]"></div>
+        <p className={`${styles.paragraph} text-gray-300 leading-relaxed text-lg`}>
           {headerData?.skill_description || "Professional faoliyatim davomida o'rgangan va ishlatgan asosiy texnologiyalarim."}
         </p>
       </div>
 
-      {/* Kartochkalar qismi */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 w-full relative z-10">
-        <div className="absolute z-0 w-[40%] h-[40%] -left-10 bottom-40 pink__gradient opacity-30" />
-        <div className="absolute z-0 w-[40%] h-[40%] right-0 top-0 blue__gradient opacity-40" />
+      {/* Kartochkalar qismi - Flexbox bilan yoyiladigan qilingan */}
+      <div className="flex flex-wrap justify-center items-stretch gap-6 w-full relative z-10">
+        <div className="absolute z-0 w-[40%] h-[40%] -left-10 bottom-40 pink__gradient opacity-30 pointer-events-none" />
+        <div className="absolute z-0 w-[40%] h-[40%] right-0 top-0 blue__gradient opacity-40 pointer-events-none" />
         
         {skillsData.map((skill) => (
-          <SkillCard 
-            key={skill._id} 
-            title_skill={skill.title_skill}
-            skill_items={skill.skill_items}
-            icon={skill.icon}
-          />
+          <div key={skill._id} className="flex-1 min-w-[250px] sm:basis-[calc(50%-1.5rem)] lg:basis-[calc(33.333%-1.5rem)] xl:basis-[calc(20%-1.5rem)] flex">
+            <SkillCard 
+              title_skill={skill.title_skill}
+              skill_items={skill.skill_items}
+              icon={skill.icon}
+            />
+          </div>
         ))}
       </div>
     </section>

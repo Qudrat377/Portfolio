@@ -69,28 +69,31 @@ function Business() {
   }
 
   return (
-    <section id="features" className={`${layout.section} relative min-h-[70vh]`}>
-      <div className={`${layout.sectionInfo} z-10`}>
+    <section id="features" className={`flex flex-col items-center justify-center relative min-h-[60vh] py-20`}>
+      {/* Orqa fon nur effektlari */}
+      <div className="absolute z-0 w-[40%] h-[40%] left-0 top-20 pink__gradient opacity-20 pointer-events-none" />
+      <div className="absolute z-0 w-[40%] h-[40%] right-0 bottom-20 blue__gradient opacity-30 pointer-events-none" />
+
+      {/* Sarlavha qismi (Markazda) */}
+      <div className={`flex flex-col items-center text-center z-10 mb-16 w-full max-w-[800px]`}>
         <h2 className={`${styles.heading2} font-bold tracking-wide`}>
           <span className="text-gradient drop-shadow-[0_0_10px_rgba(0,246,255,0.5)]">
             {data[0]?.set_me_title_first || "Men Bilan"} 
           </span>
-          <br className={`sm:block hidden`} />
+          {" "}
           {data[0]?.set_me_title_second || "Bog'lanish"}
         </h2>
-        <p className={`${styles.paragraph} max-w-[500px] mt-5 text-gray-300 leading-relaxed text-lg`}>
-          {data[0]?.set_me_description || "Loyihalar, takliflar yoki shunchaki suhbatlashish uchun men bilan quyidagi tarmoqlar orqali bog'lanishingiz mumkin."}
+        <div className="w-24 h-1 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full mt-4 mb-6 shadow-[0_0_10px_rgba(0,246,255,0.8)]"></div>
+        <p className={`${styles.paragraph} text-gray-300 leading-relaxed text-lg`}>
+          {data[0]?.set_me_description || "Loyihalar, takliflar yoki shunchaki suhbatlashish uchun men bilan quyidagi tarmoqlar orqali bog'lanishingiz mumkin. Ochiq suhbatga doim tayyorman!"}
         </p>
       </div>
-      <div className={`${layout.sectionImage} flex-col relative z-10 w-full`}>
-        <div className="absolute z-0 w-[40%] h-[40%] -left-10 bottom-40 pink__gradient opacity-30" />
-        <div className="absolute z-0 w-[50%] h-[50%] right-0 top-0 blue__gradient opacity-40" />
-        
-        <div className="flex flex-col gap-6 w-full md:max-w-[500px] md:ml-auto relative z-10">
-          {projects.map((features, idx) => (
-            <FeatureCard key={features._id} {...features} idx={idx}/>
-          ))}
-        </div>
+      
+      {/* Ikonkalar gridi */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 z-10 w-full justify-items-center">
+        {projects.map((features, idx) => (
+          <FeatureCard key={features._id} {...features} idx={idx}/>
+        ))}
       </div>
     </section>
   )

@@ -19,16 +19,16 @@ export const navigationLinks = [
     title: "Home",
   },
   {
-    id: "learn",
-    title: "Talim",
+    id: "portfolio",
+    title: "Loyihalar",
   },
   {
     id: "skills",
     title: "Ko'nikmalar",
   },
   {
-    id: "portfolio",
-    title: "Loyihalar",
+    id: "learn",
+    title: "Talim",
   },
   {
     id: "features",
