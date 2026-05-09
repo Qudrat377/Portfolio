@@ -78,11 +78,24 @@ async function updateCache(studentId, delta) {
     }
   }
 
-  await PersonalVocabCache.findOneAndUpdate(
+  const updatedCache = await PersonalVocabCache.findOneAndUpdate(
     { student: studentId },
     { $inc: inc, $set: { updatedAt: new Date() } },
-    { upsert: true }
+    { upsert: true, new: true }
   );
+
+  // Minus himoyasi: agar qaysidir qiymat 0 dan kichik bo'lib qolsa (eski xatolar yoki race condition sababli),
+  // keshni avtomatik ravishda haqiqiy bazadagi holatga sinxronlab to'g'rilaymiz.
+  if (
+    updatedCache.statusCount.new < 0 ||
+    updatedCache.statusCount.learning < 0 ||
+    updatedCache.statusCount.review < 0 ||
+    updatedCache.statusCount.mastered < 0 ||
+    updatedCache.total < 0
+  ) {
+    console.warn(`[CACHE REBUILD] Negative cache detected for student ${studentId}. Auto-rebuilding cache...`);
+    await rebuildCache(studentId);
+  }
 }
 
 /**

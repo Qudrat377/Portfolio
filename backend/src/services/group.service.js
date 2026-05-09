@@ -37,7 +37,7 @@ class GroupService {
         .sort(sortObj)
         .skip(skip)
         .limit(limit)
-        .lean(),
+        .lean({ virtuals: true }),
       Group.countDocuments(filter),
     ]);
 
