@@ -6,6 +6,7 @@ const { parsePagination, parseSort } = require('../utils/pagination');
 const { buildPaginationMeta } = require('../utils/response');
 const { HOMEWORK_TYPES, ROLES } = require('../config/constants');
 const { audit, ACTIONS } = require('../utils/auditLog');
+const personalWordService = require('./Personalword.service');
 
 class HomeworkService {
   async getHomework(query, requestingUser) {
@@ -167,6 +168,36 @@ class HomeworkService {
       ]),
     ]);
     return { total, published, byType };
+  }
+
+  async syncVocabulary(id, updatingUser) {
+    const homework = await Homework.findOne({ _id: id, isDeleted: false });
+    if (!homework) throw new NotFoundError('Homework');
+    
+    if (homework.type !== HOMEWORK_TYPES.VOCABULARY || !homework.vocabulary) {
+      throw new AppError('This homework is not a vocabulary assignment', 400);
+    }
+
+    const group = await Group.findOne({ _id: homework.group, isDeleted: false }).select('students');
+    if (!group) throw new NotFoundError('Group');
+
+    let totalAdded = 0;
+    
+    // Barcha o'quvchilarga yangi so'zlarni qo'shish (faqat ularda yo'q bo'lganlarini)
+    for (const studentId of group.students) {
+      const { addedCount } = await personalWordService.addWordsFromVocabulary(studentId, homework.vocabulary);
+      totalAdded += (addedCount || 0);
+    }
+
+    await audit({
+      userId: updatingUser._id,
+      action: ACTIONS.UPDATE,
+      resource: 'Homework',
+      resourceId: homework._id,
+      details: { action: 'sync-vocabulary', totalAdded },
+    });
+
+    return { totalAdded, syncedStudents: group.students.length };
   }
 }
 

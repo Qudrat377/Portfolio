@@ -47,6 +47,12 @@ router.delete(
   homeworkController.deleteHomework
 );
 
+router.post(
+  '/:id/sync-vocabulary',
+  authorize(TEACHER, ADMIN, MANAGER),
+  homeworkController.syncVocabulary
+);
+
 // Group homework stats
 router.get(
   '/group/:groupId/stats',

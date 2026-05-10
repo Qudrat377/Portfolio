@@ -36,3 +36,8 @@ exports.getHomeworkStats = asyncHandler(async (req, res) => {
   const stats = await homeworkService.getHomeworkStats(req.params.groupId);
   sendSuccess(res, { data: stats });
 });
+
+exports.syncVocabulary = asyncHandler(async (req, res) => {
+  const result = await homeworkService.syncVocabulary(req.params.id, req.user);
+  sendSuccess(res, { data: result, message: `O'quvchilarga jami ${result.totalAdded} ta yangi so'z tarqatildi!` });
+});
