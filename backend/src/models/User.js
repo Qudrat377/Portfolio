@@ -62,6 +62,10 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    birthDate: {
+      type: Date,
+      default: null,
+    },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
