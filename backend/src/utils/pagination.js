@@ -21,10 +21,10 @@ const withActive = (filter = {}) => ({ ...filter, isDeleted: false });
 /**
  * Build sort object from query
  */
-const parseSort = (sortQuery, defaultSort = { createdAt: -1 }) => {
+const parseSort = (sortQuery, defaultSort = { createdAt: -1, _id: 1 }) => {
   if (!sortQuery) return defaultSort;
   const [field, order] = sortQuery.split(':');
-  return { [field]: order === 'asc' ? 1 : -1 };
+  return { [field]: order === 'asc' ? 1 : -1, _id: 1 };
 };
 
 module.exports = { parsePagination, withActive, parseSort };

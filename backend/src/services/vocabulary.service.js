@@ -19,7 +19,7 @@ class VocabularyService {
     const [vocabularies, total] = await Promise.all([
       Vocabulary.find(filter)
         .populate('createdBy', 'firstName lastName')
-        .sort({ createdAt: -1 })
+        .sort({ createdAt: -1, _id: 1 })
         .skip(skip)
         .limit(limit)
         .lean(),
