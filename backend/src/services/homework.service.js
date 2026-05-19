@@ -96,6 +96,12 @@ class HomeworkService {
       createdBy: creatingUser._id,
     });
 
+    await homework.populate([
+      { path: 'group', select: 'name level' },
+      { path: 'createdBy', select: 'firstName lastName' },
+      { path: 'vocabulary', select: 'title' }
+    ]);
+
     await audit({
       userId: creatingUser._id,
       action: ACTIONS.CREATE,
@@ -113,6 +119,12 @@ class HomeworkService {
 
     Object.assign(homework, data);
     await homework.save();
+
+    await homework.populate([
+      { path: 'group', select: 'name level' },
+      { path: 'createdBy', select: 'firstName lastName' },
+      { path: 'vocabulary', select: 'title' }
+    ]);
 
     await audit({
       userId: updatingUser._id,
